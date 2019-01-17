@@ -484,7 +484,7 @@ void ChainState::PollSwitches() {
             // Still pressed after detecting a long press, detect ouroboros toggle
             --switch_press_time_[switch_index]; // Count ms backwards
             if (switch_press_time_[switch_index] < -kLongPressDurationForOuroborosToggle) {
-              ouroboros_toggle_ = !ouroboros_toggle_; // Toggle ouroboros mode
+              this->ouroboros_toggle(); // Toggle ouroboros mode
               switch_press_time_[switch_index] = -1;
             }
           }

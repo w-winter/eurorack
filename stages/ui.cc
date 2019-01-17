@@ -36,6 +36,7 @@ using namespace std;
 using namespace stmlib;
 
 const int32_t kLongPressDuration = 400;
+const int32_t kLongPressDurationForOuroborosToggle = 5000;
 
 namespace stages {
 
@@ -81,15 +82,22 @@ void Ui::Poll() {
     State* s = settings_->mutable_state();
     for (int i = 0; i < kNumSwitches; ++i) {
       if (switches_.pressed(i)) {
-        if (press_time_[i] != -1) {
+        if (press_time_[i] > -1) {
           ++press_time_[i];
-        }
-        if (press_time_[i] > kLongPressDuration) {
-          uint8_t loop_bit = s->segment_configuration[i] & 0x4;
-          uint8_t type_bits = s->segment_configuration[i] & 0x03;
-          s->segment_configuration[i] = type_bits | (4 - loop_bit);
-          settings_->SaveState();
-          press_time_[i] = -1;
+          if (press_time_[i] > kLongPressDuration) {
+            uint8_t loop_bit = s->segment_configuration[i] & 0x4;
+            uint8_t type_bits = s->segment_configuration[i] & 0x03;
+            s->segment_configuration[i] = type_bits | (4 - loop_bit);
+            settings_->SaveState();
+            press_time_[i] = -1;
+          }
+        } else {
+          // Still pressed after detecting a long press, detect ouroboros toggle
+          --press_time_[i]; // Count ms backwards
+          if (press_time_[i] < -kLongPressDurationForOuroborosToggle) {
+            chain_state_->ouroboros_toggle(); // Toggle ouroboros mode
+            press_time_[i] = -1;
+          }
         }
       } else {
         if (press_time_[i] > 0) {
