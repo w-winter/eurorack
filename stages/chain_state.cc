@@ -43,6 +43,7 @@ const uint32_t kRightKey = stmlib::FourCC<'o', 'v', 'e', 'r'>::value;
 // How long before unpatching an input actually breaks the chain.
 const uint32_t kUnpatchedInputDelay = 2000;
 const int32_t kLongPressDuration = 400;
+const int32_t kLongPressDurationForOuroborosToggle = 5000;
 
 void ChainState::Init(SerialLink* left, SerialLink* right) {
   index_ = 0;
@@ -76,6 +77,7 @@ void ChainState::Init(SerialLink* left, SerialLink* right) {
   
   discovering_neighbors_ = true;
   ouroboros_ = false;
+  ouroboros_toggle_ = false;
   counter_ = 0;
   num_internal_bindings_ = 0;
   num_bindings_ = 0;
@@ -464,7 +466,7 @@ void ChainState::PollSwitches() {
       ChannelBitmask switch_pressed = switch_pressed_[i];
       for (size_t j = 0; j < kNumChannels; ++j) {
         if (switch_pressed & 1) {
-          if (switch_press_time_[switch_index] != -1) {
+          if (switch_press_time_[switch_index] > -1) {
             ++switch_press_time_[switch_index];
             if (first_pressed != kMaxNumChannels) {
               // Simultaneously pressing a pair of buttons.
@@ -477,6 +479,13 @@ void ChainState::PollSwitches() {
               switch_press_time_[switch_index] = -1;
             } else {
               first_pressed = switch_index;
+            }
+          } else {
+            // Still pressed after detecting a long press, detect ouroboros toggle
+            --switch_press_time_[switch_index]; // Count ms backwards
+            if (switch_press_time_[switch_index] < -kLongPressDurationForOuroborosToggle) {
+              ouroboros_toggle_ = !ouroboros_toggle_; // Toggle ouroboros mode
+              switch_press_time_[switch_index] = -1;
             }
           }
         } else {

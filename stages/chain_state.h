@@ -62,7 +62,8 @@ class ChainState {
   inline size_t size() const { return size_; }
   
   inline bool discovering_neighbors() const { return discovering_neighbors_; }
-  inline bool ouroboros() const { return ouroboros_; }
+  inline bool ouroboros() const { return ouroboros_ || ouroboros_toggle_; }
+  inline void ouroboros_toggle() { ouroboros_toggle_ = !ouroboros_toggle_; }
   
   // Internally, we only store a loop bit for each channel - but the UI needs
   // to know more than that. It needs to know whether a channel with a loop bit
@@ -250,6 +251,7 @@ class ChainState {
   
   bool discovering_neighbors_;
   bool ouroboros_;
+  bool ouroboros_toggle_;
   uint32_t counter_;
   
   Packet left_tx_packet_;
