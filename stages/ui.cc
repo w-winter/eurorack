@@ -35,7 +35,7 @@
 using namespace std;
 using namespace stmlib;
 
-const int32_t kLongPressDuration = 1000;
+const int32_t kLongPressDuration = 400;
 
 namespace stages {
 

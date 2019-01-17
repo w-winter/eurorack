@@ -42,7 +42,7 @@ const uint32_t kRightKey = stmlib::FourCC<'o', 'v', 'e', 'r'>::value;
 
 // How long before unpatching an input actually breaks the chain.
 const uint32_t kUnpatchedInputDelay = 2000;
-const int32_t kLongPressDuration = 800;
+const int32_t kLongPressDuration = 400;
 
 void ChainState::Init(SerialLink* left, SerialLink* right) {
   index_ = 0;
