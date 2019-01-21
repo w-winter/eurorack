@@ -312,7 +312,7 @@ void SegmentGenerator::ProcessFreeRunningLFO(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
   float f = 96.0f * (parameters_[0].primary - 0.5f);
   CONSTRAIN(f, -128.0f, 127.0f);
-  const float frequency = SemitonesToRatio(f) * 2.0439497f / kSampleRate;
+  const float frequency = SemitonesToRatio(f) * 2.0439497f / kSampleRate * 0.125f;
 
   active_segment_ = 0;
   for (size_t i = 0; i < size; ++i) {
