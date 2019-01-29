@@ -244,7 +244,7 @@ void Init() {
     factory_test.Start(&settings, &cv_reader, &gate_inputs, &ui);
     ui.set_factory_test(true);
   } else {
-    chain_state.Init(&left_link, &right_link, &settings);
+    chain_state.Init(&left_link, &right_link);
   }
   
   sys.StartTimers();

@@ -50,7 +50,7 @@ class ChainState {
   
   typedef uint8_t ChannelBitmask;
   
-  void Init(SerialLink* left, SerialLink* right, Settings* settings);
+  void Init(SerialLink* left, SerialLink* right);
   void Update(
       const IOBuffer::Block& block,
       Settings* settings,
@@ -87,7 +87,7 @@ class ChainState {
   }
   
  private:
-  void DiscoverNeighbors();
+  void DiscoverNeighbors(Settings* settings);
 
   void TransmitRight();
   void TransmitLeft();

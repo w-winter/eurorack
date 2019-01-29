@@ -45,7 +45,7 @@ const uint32_t kUnpatchedInputDelay = 2000;
 const int32_t kLongPressDuration = 400;
 const int32_t kLongPressDurationForOuroborosToggle = 5000;
 
-void ChainState::Init(SerialLink* left, SerialLink* right, Settings* settings) {
+void ChainState::Init(SerialLink* left, SerialLink* right) {
   index_ = 0;
   size_ = 1;
   
@@ -77,13 +77,13 @@ void ChainState::Init(SerialLink* left, SerialLink* right, Settings* settings) {
   
   discovering_neighbors_ = true;
   ouroboros_ = false;
-  ouroboros_toggle_ = (settings->state().ouroboros_toggle == 0x01);
+  ouroboros_toggle_ = false;
   counter_ = 0;
   num_internal_bindings_ = 0;
   num_bindings_ = 0;
 }
 
-void ChainState::DiscoverNeighbors() {
+void ChainState::DiscoverNeighbors(Settings* settings) {
   // Between t = 500ms and t = 1500ms, ping the neighbors every 50ms
   if (counter_ >= 2000 &&
       counter_ <= 6000 &&
@@ -109,9 +109,12 @@ void ChainState::DiscoverNeighbors() {
   }
   
   ouroboros_ = index_ >= kMaxChainSize || size_ > kMaxChainSize;
+  
+  // After 1.25s, checks for the ouroboros toggle in the permanent settings
+  if (counter_ == 5000) ouroboros_toggle_ = (settings->state().ouroboros_toggle == 0x01);
 
   // The discovery phase lasts 2000ms.
-  discovering_neighbors_ = counter_ < 8000 && !ouroboros_;
+  discovering_neighbors_ = counter_ < 8000 && !ouroboros_ && !ouroboros_toggle_;
   if (discovering_neighbors_) {
     ++counter_;
   } else {
@@ -551,7 +554,7 @@ void ChainState::Update(
     SegmentGenerator* segment_generator,
     SegmentGenerator::Output* out) {
   if (discovering_neighbors_) {
-    DiscoverNeighbors();
+    DiscoverNeighbors(settings);
     return;
   }
   
