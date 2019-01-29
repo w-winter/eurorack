@@ -45,7 +45,7 @@ const uint32_t kUnpatchedInputDelay = 2000;
 const int32_t kLongPressDuration = 400;
 const int32_t kLongPressDurationForOuroborosToggle = 5000;
 
-void ChainState::Init(SerialLink* left, SerialLink* right) {
+void ChainState::Init(SerialLink* left, SerialLink* right, Settings* settings) {
   index_ = 0;
   size_ = 1;
   
@@ -77,7 +77,7 @@ void ChainState::Init(SerialLink* left, SerialLink* right) {
   
   discovering_neighbors_ = true;
   ouroboros_ = false;
-  ouroboros_toggle_ = false;
+  ouroboros_toggle_ = (settings->state().ouroboros_toggle == 0x01);
   counter_ = 0;
   num_internal_bindings_ = 0;
   num_bindings_ = 0;
@@ -446,7 +446,7 @@ ChainState::RequestPacket ChainState::MakeLoopChangeRequest(
   return result;
 }
 
-void ChainState::PollSwitches() {
+void ChainState::PollSwitches(Settings* settings) {
   // The last module in the chain polls the states of the switches for the
   // entire chain. The state of the switches has been passed from left
   // to right.
@@ -484,7 +484,7 @@ void ChainState::PollSwitches() {
             // Still pressed after detecting a long press, detect ouroboros toggle
             --switch_press_time_[switch_index]; // Count ms backwards
             if (switch_press_time_[switch_index] < -kLongPressDurationForOuroborosToggle) {
-              this->ouroboros_toggle(); // Toggle ouroboros mode
+              this->ouroboros_toggle(settings); // Toggle ouroboros mode
               switch_press_time_[switch_index] = -1;
             }
           }
@@ -557,7 +557,7 @@ void ChainState::Update(
   
   switch (counter_ & 0x3) {
     case 0:
-      PollSwitches();
+      PollSwitches(settings);
       UpdateLocalState(block, *settings, out[kBlockSize - 1]);
       TransmitRight();
       break;
@@ -580,6 +580,18 @@ void ChainState::Update(
   fill(&out[0], &out[kBlockSize], rx_last_sample_);
   
   ++counter_;
+}
+
+void ChainState::ouroboros_toggle(Settings* settings) { 
+  
+  // Toggle
+  this->ouroboros_toggle_ = !(this->ouroboros_toggle_);
+  
+  // Save the toggle value into permanent settings
+  State* state = settings->mutable_state();
+  state->ouroboros_toggle = this->ouroboros_toggle_ ? 0x01 : 0x00; 
+  settings->SaveState();
+  
 }
 
 }  // namespace stages
