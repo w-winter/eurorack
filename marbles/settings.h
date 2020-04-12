@@ -1,6 +1,6 @@
-// Copyright 2015 Olivier Gillet.
+// Copyright 2015 Emilie Gillet.
 //
-// Author: Olivier Gillet (pichenettes@mutable-instruments.net)
+// Author: Emilie Gillet (emilie.o.gillet@gmail.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -56,6 +56,12 @@ struct PersistentData {
   uint8_t padding[16];
   
   enum { tag = 0x494C4143 };
+};
+
+enum DejaVuState {
+  DEJA_VU_OFF,
+  DEJA_VU_ON,
+  DEJA_VU_LOCKED
 };
 
 struct State {

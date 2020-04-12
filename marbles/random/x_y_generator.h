@@ -1,6 +1,6 @@
-// Copyright 2015 Olivier Gillet.
+// Copyright 2015 Emilie Gillet.
 //
-// Author: Olivier Gillet (pichenettes@mutable-instruments.net)
+// Author: Emilie Gillet (emilie.o.gillet@gmail.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -114,6 +114,8 @@ class XYGenerator {
   RampDivider ramp_divider_;
   
   int external_clock_stabilization_counter_;
+  
+  bool use_shifted_sequences_[kNumChannels];
   
   DISALLOW_COPY_AND_ASSIGN(XYGenerator);
 };

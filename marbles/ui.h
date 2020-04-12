@@ -1,6 +1,6 @@
-// Copyright 2015 Olivier Gillet.
+// Copyright 2015 Emilie Gillet.
 //
-// Author: Olivier Gillet (pichenettes@mutable-instruments.net)
+// Author: Emilie Gillet (emilie.o.gillet@gmail.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -36,13 +36,13 @@
 #include "marbles/drivers/adc.h"
 #include "marbles/drivers/leds.h"
 #include "marbles/drivers/switches.h"
+#include "marbles/settings.h"
 
 namespace marbles {
 
 class ClockInputs;
 class CvReader;
 class ScaleRecorder;
-class Settings;
 
 enum UiMode {
   UI_MODE_NORMAL,
@@ -111,6 +111,7 @@ class Ui {
   void UpdateHiddenParameters();
   void TerminateScaleRecording();
   static LedColor MakeColor(uint8_t value, bool color_blind);
+  static LedColor DejaVuColor(DejaVuState state, bool lock);
   
   stmlib::EventQueue<16> queue_;
   
