@@ -1,6 +1,6 @@
-// Copyright 2017 Olivier Gillet.
+// Copyright 2017 Emilie Gillet.
 //
-// Author: Olivier Gillet (pichenettes@mutable-instruments.net)
+// Author: Emilie Gillet (emilie.o.gillet@gmail.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,7 @@
 #ifndef STAGES_SEGMENT_GENERATOR_H_
 #define STAGES_SEGMENT_GENERATOR_H_
 
+#include "stmlib/dsp/delay_line.h"
 #include "stmlib/dsp/hysteresis_quantizer.h"
 #include "stmlib/utils/gate_flags.h"
 
@@ -194,6 +195,7 @@ class SegmentGenerator {
   segment::Parameters parameters_[kMaxNumSegments];
   
   DelayLine16Bits<kMaxDelay> delay_line_;
+  stmlib::DelayLine<stmlib::GateFlags, 128> gate_delay_;
   
   static ProcessFn process_fn_table_[12];
   
