@@ -95,7 +95,7 @@ void Ui::Poll() {
           // Still pressed after detecting a long press, detect ouroboros toggle
           --press_time_[i]; // Count ms backwards
           if (press_time_[i] < -kLongPressDurationForOuroborosToggle) {
-            chain_state_->ouroboros_toggle(); // Toggle ouroboros mode
+            chain_state_->ouroboros_toggle(settings_); // Toggle ouroboros mode
             press_time_[i] = -1;
           }
         }

@@ -59,6 +59,7 @@ bool Settings::Init() {
       0);
   
   state_.color_blind = 0;
+  state_.ouroboros_toggle = 0;
   
   bool success = chunk_storage_.Init(&persistent_data_, &state_);
   

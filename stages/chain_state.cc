@@ -83,7 +83,7 @@ void ChainState::Init(SerialLink* left, SerialLink* right) {
   num_bindings_ = 0;
 }
 
-void ChainState::DiscoverNeighbors() {
+void ChainState::DiscoverNeighbors(Settings* settings) {
   // Between t = 500ms and t = 1500ms, ping the neighbors every 50ms
   if (counter_ >= 2000 &&
       counter_ <= 6000 &&
@@ -109,9 +109,12 @@ void ChainState::DiscoverNeighbors() {
   }
   
   ouroboros_ = index_ >= kMaxChainSize || size_ > kMaxChainSize;
+  
+  // After 1.25s, checks for the ouroboros toggle in the permanent settings
+  if (counter_ == 5000) ouroboros_toggle_ = (settings->state().ouroboros_toggle == 0x01);
 
   // The discovery phase lasts 2000ms.
-  discovering_neighbors_ = counter_ < 8000 && !ouroboros_;
+  discovering_neighbors_ = counter_ < 8000 && !ouroboros_ && !ouroboros_toggle_;
   if (discovering_neighbors_) {
     ++counter_;
   } else {
@@ -446,7 +449,7 @@ ChainState::RequestPacket ChainState::MakeLoopChangeRequest(
   return result;
 }
 
-void ChainState::PollSwitches() {
+void ChainState::PollSwitches(Settings* settings) {
   // The last module in the chain polls the states of the switches for the
   // entire chain. The state of the switches has been passed from left
   // to right.
@@ -484,7 +487,7 @@ void ChainState::PollSwitches() {
             // Still pressed after detecting a long press, detect ouroboros toggle
             --switch_press_time_[switch_index]; // Count ms backwards
             if (switch_press_time_[switch_index] < -kLongPressDurationForOuroborosToggle) {
-              this->ouroboros_toggle(); // Toggle ouroboros mode
+              this->ouroboros_toggle(settings); // Toggle ouroboros mode
               switch_press_time_[switch_index] = -1;
             }
           }
@@ -551,13 +554,13 @@ void ChainState::Update(
     SegmentGenerator* segment_generator,
     SegmentGenerator::Output* out) {
   if (discovering_neighbors_) {
-    DiscoverNeighbors();
+    DiscoverNeighbors(settings);
     return;
   }
   
   switch (counter_ & 0x3) {
     case 0:
-      PollSwitches();
+      PollSwitches(settings);
       UpdateLocalState(block, *settings, out[kBlockSize - 1]);
       TransmitRight();
       break;
@@ -580,6 +583,18 @@ void ChainState::Update(
   fill(&out[0], &out[kBlockSize], rx_last_sample_);
   
   ++counter_;
+}
+
+void ChainState::ouroboros_toggle(Settings* settings) { 
+  
+  // Toggle
+  this->ouroboros_toggle_ = !(this->ouroboros_toggle_);
+  
+  // Save the toggle value into permanent settings
+  State* state = settings->mutable_state();
+  state->ouroboros_toggle = this->ouroboros_toggle_ ? 0x01 : 0x00; 
+  settings->SaveState();
+  
 }
 
 }  // namespace stages

@@ -59,7 +59,7 @@ struct PersistentData {
 struct State {
   uint8_t segment_configuration[kNumChannels];
   uint8_t color_blind;
-  uint8_t padding[1];
+  uint8_t ouroboros_toggle;
   enum { tag = 0x54415453 };  // STAT
 };
 
