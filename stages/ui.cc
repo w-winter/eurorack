@@ -48,7 +48,7 @@ const LedColor Ui::palette_[4] = {
   LED_COLOR_OFF
 };
 
-void Ui::Init(Settings* settings, ChainState* chain_state) {
+void Ui::Init(Settings* settings) {
   leds_.Init();
   switches_.Init();
   
@@ -57,7 +57,6 @@ void Ui::Init(Settings* settings, ChainState* chain_state) {
   
   settings_ = settings;
   mode_ = UI_MODE_NORMAL;
-  chain_state_ = chain_state;
   
   if (switches_.pressed_immediate(0)) {
     State* state = settings_->mutable_state();
@@ -78,126 +77,22 @@ void Ui::Poll() {
   
   switches_.Debounce();
   
-  if (chain_state_->ouroboros()) {
-    State* s = settings_->mutable_state();
-    for (int i = 0; i < kNumSwitches; ++i) {
-      if (switches_.pressed(i)) {
-        if (press_time_[i] > -1) {
-          ++press_time_[i];
-          if (press_time_[i] > kLongPressDuration) {
-            uint8_t loop_bit = s->segment_configuration[i] & 0x4;
-            uint8_t type_bits = s->segment_configuration[i] & 0x03;
-            s->segment_configuration[i] = type_bits | (4 - loop_bit);
-            settings_->SaveState();
-            press_time_[i] = -1;
-          }
-        } else {
-          // Still pressed after detecting a long press, detect ouroboros toggle
-          --press_time_[i]; // Count ms backwards
-          if (press_time_[i] < -kLongPressDurationForOuroborosToggle) {
-            chain_state_->ouroboros_toggle(settings_); // Toggle ouroboros mode
-            press_time_[i] = -1;
-          }
-        }
-      } else {
-        if (press_time_[i] > 0) {
-          uint8_t loop_bit = s->segment_configuration[i] & 0x4;
-          uint8_t type_bits = s->segment_configuration[i] & 0x03;
-          s->segment_configuration[i] = ((type_bits + 1) % 3) | loop_bit;
-          settings_->SaveState();
-        }
-        press_time_[i] = 0;
-      }
-    }
-  } else {
-    ChainState::ChannelBitmask pressed = 0;
-    for (int i = 0; i < kNumSwitches; ++i) {
-      if (switches_.pressed(i)) {
-        pressed |= 1 << i;
-      }
-    }
-    chain_state_->set_local_switch_pressed(pressed);
-  }
-}
-
-inline uint8_t Ui::FadePattern(uint8_t shift, uint8_t phase) const {
-  uint8_t x = system_clock.milliseconds() >> shift;
-  x += phase;
-  x &= 0x1f;
-  return x <= 0x10 ? x : 0x1f - x;
 }
 
 void Ui::UpdateLEDs() {
   leds_.Clear();
 
-  if (mode_ == UI_MODE_FACTORY_TEST) {
-    size_t counter = (system_clock.milliseconds() >> 8) % 3;
-    for (size_t i = 0; i < kNumChannels; ++i) {
-      if (slider_led_counter_[i] == 0) {
-        leds_.set(LED_GROUP_UI + i, palette_[counter]);
-        leds_.set(LED_GROUP_SLIDER + i,
-                  counter == 0 ? LED_COLOR_GREEN : LED_COLOR_OFF);
-      } else if (slider_led_counter_[i] == 1) {
-        leds_.set(LED_GROUP_UI + i, LED_COLOR_GREEN);
-        leds_.set(LED_GROUP_SLIDER + i, LED_COLOR_OFF);
-      } else {
-        leds_.set(LED_GROUP_UI + i, LED_COLOR_GREEN);
-        leds_.set(LED_GROUP_SLIDER + i, LED_COLOR_GREEN);
-      }
+  for (size_t i = 0; i < kNumChannels; ++i) {
+    
+    leds_.set(LED_GROUP_UI + i, led_color_[i]);
+    
+    leds_.set(LED_GROUP_SLIDER + i, slider_led_counter_[i] ? LED_COLOR_GREEN : LED_COLOR_OFF);
+    if (slider_led_counter_[i]) {
+      --slider_led_counter_[i];
     }
-  } else if (chain_state_->discovering_neighbors()) {
-    size_t counter = system_clock.milliseconds() >> 5;
-    size_t n = chain_state_->size() * kNumChannels;
-    counter = counter % (2 * n - 2);
-    if (counter >= n) {
-      counter = 2 * n - 2 - counter;
-    }
-    if (counter >= chain_state_->index() * kNumChannels) {
-      counter -= chain_state_->index() * kNumChannels;
-      if (counter < kNumChannels) {
-        leds_.set(LED_GROUP_UI + counter, LED_COLOR_YELLOW);
-        leds_.set(LED_GROUP_SLIDER + counter, LED_COLOR_GREEN);
-      }
-    }
-  } else {
-    uint8_t pwm = system_clock.milliseconds() & 0xf;
-    uint8_t fade_patterns[4] = {
-      0xf,  // NONE
-      FadePattern(4, 0),  // START
-      FadePattern(4, 0x0f),  // END
-      FadePattern(4, 0x08),  // SELF
-    };
-    for (size_t i = 0; i < kNumChannels; ++i) {
-      uint8_t configuration = settings_->state().segment_configuration[i];
-      uint8_t type = configuration & 0x3;
-      int brightness = fade_patterns[chain_state_->ouroboros()
-          ? (configuration & 0x4 ? 3 : 0)
-          : chain_state_->loop_status(i)];
-      LedColor color = palette_[type];
-      if (settings_->state().color_blind == 1) {
-        if (type == 0) {
-          color = LED_COLOR_GREEN;
-          uint8_t modulation = FadePattern(6, 13 - (2 * i)) >> 1;
-          brightness = brightness * (7 + modulation) >> 4;
-        } else if (type == 1) {
-          color = LED_COLOR_YELLOW;
-          brightness = brightness >= 0x8 ? 0xf : 0;
-        } else if (type == 2) {
-          color = LED_COLOR_RED;
-          brightness = brightness >= 0xc ? 0x1 : 0;
-        }
-      }
-      leds_.set(
-          LED_GROUP_UI + i,
-          (brightness >= pwm && brightness != 0) ? color : LED_COLOR_OFF);
-      leds_.set(
-          LED_GROUP_SLIDER + i,
-          slider_led_counter_[i] ? LED_COLOR_GREEN : LED_COLOR_OFF);
-      if (slider_led_counter_[i]) {
-        --slider_led_counter_[i];
-      }
-    }
+    
   }
+  
   leds_.Write();
 }
 

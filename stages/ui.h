@@ -41,29 +41,26 @@
 namespace stages {
 
 enum UiMode {
-  UI_MODE_NORMAL,
-  UI_MODE_FACTORY_TEST
+  UI_MODE_NORMAL
 };
-
-class ChainState;
 
 class Ui {
  public:
   Ui() { }
   ~Ui() { }
   
-  void Init(Settings* settings, ChainState* chain_state);
+  void Init(Settings* settings);
   void Poll();
   void DoEvents();
-
+  
+  void set_led(int i, LedColor color) {
+    led_color_[i] = color;
+  }
+    
   void set_slider_led(int i, bool value, int duration) {
     if (value) {
       slider_led_counter_[i] = duration;
     }
-  }
-  
-  inline void set_factory_test(bool factory_test) {
-    mode_ = factory_test ? UI_MODE_FACTORY_TEST : UI_MODE_NORMAL;
   }
   
   inline const Switches& switches() const { return switches_; }
@@ -78,11 +75,11 @@ class Ui {
   Leds leds_;
   Switches switches_;
   
+  LedColor led_color_[kNumLEDs];
   int slider_led_counter_[kNumLEDs];
   int press_time_[kNumSwitches];
 
   Settings* settings_;
-  ChainState* chain_state_;
   
   UiMode mode_;
 

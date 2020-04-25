@@ -29,12 +29,18 @@
 #ifndef STAGES_SETTINGS_H_
 #define STAGES_SETTINGS_H_
 
+#include <math.h>
+
 #include "stmlib/stmlib.h"
 #include "stmlib/system/storage.h"
-
-#include "stages/chain_state.h"
+#include "stages/io_buffer.h"
 
 namespace stages {
+
+const size_t kMaxChainSize = 6;
+const size_t kMaxNumChannels = kMaxChainSize * kNumChannels;
+
+const float kSampleRate = 31250.0f;
 
 struct ChannelCalibrationData {
   float adc_offset;
