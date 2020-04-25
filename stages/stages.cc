@@ -30,6 +30,7 @@
 #include "stmlib/dsp/units.h"
 #include "stages/drivers/dac.h"
 #include "stages/drivers/gate_inputs.h"
+#include "stages/drivers/leds.h"
 #include "stages/drivers/serial_link.h"
 #include "stages/drivers/system.h"
 #include "stages/cv_reader.h"
@@ -85,6 +86,33 @@ IOBuffer::Slice FillBuffer(size_t size) {
 }
 
 void ProcessTest(IOBuffer::Block* block, size_t size) {
+  
+  for (size_t channel = 0; channel < kNumChannels; channel++) {
+    
+    // Pot position affects LED color
+    const float pot = block->pot[channel];
+    ui.set_led(channel, pot > 0.5f ? LED_COLOR_GREEN : LED_COLOR_OFF);
+    
+    // Gete input and button turn the LED red
+    bool gate = false;
+    bool button = ui.switches().pressed(channel);
+    if (block->input_patched[channel]) {
+      for (size_t i = 0; i < size; i++) {
+        gate = gate || (block->input[channel][i] & GATE_FLAG_HIGH);
+      }
+    }
+    if (gate || button) {
+      ui.set_led(channel, LED_COLOR_RED);
+    }
+    
+    // Slider position (summed with input CV) affects output value
+    const float output = (gate || button) ? 1.0f : block->cv_slider[channel];
+    ui.set_slider_led(channel, output > 0.001f, 1);
+    for (size_t i = 0; i < size; i++) {
+      block->output[channel][i] = settings.dac_code(channel, output);
+    }
+    
+  }
   
 }
 
