@@ -11,7 +11,7 @@ This is a unofficial non-supported firmware for Mutable Instruments Stages. It s
 Download and installation
 -------------------------
 
-Download the **[latest WAV file from here][2]** and follow the [firmware update procedure here][3]. Source code is available [here][8].
+📦 Download the **[latest WAV file here][2]** and follow the [firmware update procedure here][3]. Source code is available [here][8].
 
 [2]: https://github.com/joeSeggiola/eurorack/releases/latest
 [3]: https://mutable-instruments.net/modules/stages/manual/#firmware
