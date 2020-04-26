@@ -6,7 +6,6 @@ This is a unofficial non-supported firmware for Mutable Instruments Stages. It s
 ⚠️ **Warning:** This firmware has **not** been tested on multiple [chained][1] modules. It could behave strangely if chained. Obviously I'm not responsible for any issue you might encounter.
 
 [1]: https://mutable-instruments.net/modules/stages/manual/#chaining-modules
-[6]: https://forum.mutable-instruments.net/t/stages/13643/130
 
 
 Download and installation
@@ -27,9 +26,9 @@ Hold one of the six buttons for 5 seconds to change mode. This setting is persis
 1. Segment generator
 2. Segment generator
 3. Segment generator
-4. Segment generator with slower free-running LFOs
-5. Six DAHDSR envelope generators
-6. Harmonic oscillator, aka Ouroboros mode
+4. Segment generator with [slower free-running LFOs](#slower-free-running-lfos)
+5. [Six DAHDSR envelope generators](#six-dahdsr-envelope-generators)
+6. [Harmonic oscillator](#harmonic-oscillator), aka Ouroboros mode
 
 For **segment generator** mode, refer to the official [Stages manual][4]. For the other modes, see below.
 
