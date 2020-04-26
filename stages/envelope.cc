@@ -47,9 +47,13 @@ namespace stages {
           SetStage(IDLE);
           break;
           
-        // Else, skip to release stage
+        // Else, skip to release stage, or go idle if current value is already zero
         default:
-          SetStage(RELEASE);
+          if (value > 0.001f) {
+            SetStage(RELEASE);
+          } else {
+            SetStage(IDLE);
+          }
           break;
           
       }
