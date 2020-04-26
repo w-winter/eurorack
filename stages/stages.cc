@@ -36,6 +36,7 @@
 #include "stages/cv_reader.h"
 #include "stages/io_buffer.h"
 #include "stages/resources.h"
+#include "stages/envelope.h"
 #include "stages/settings.h"
 #include "stages/ui.h"
 
@@ -48,6 +49,7 @@ Dac dac;
 GateFlags no_gate[kBlockSize];
 GateInputs gate_inputs;
 IOBuffer io_buffer;
+Envelope eg[kNumChannels];
 Settings settings;
 Ui ui;
 
@@ -116,16 +118,89 @@ void ProcessTest(IOBuffer::Block* block, size_t size) {
   
 }
 
+void ProcessSixEg(IOBuffer::Block* block, size_t size) {
+  
+  // Slider LEDs
+  ui.set_slider_led(0, eg[0].HasDelay  (), 1);
+  ui.set_slider_led(1, eg[0].HasAttack (), 1);
+  ui.set_slider_led(2, eg[0].HasHold   (), 1);
+  ui.set_slider_led(3, eg[0].HasDecay  (), 1);
+  ui.set_slider_led(4, eg[0].HasSustain(), 1);
+  ui.set_slider_led(5, eg[0].HasRelease(), 1);
+  
+  // Wait 1sec at boot before checking gates
+  static int egGateWarmTime = 4000;
+  if (egGateWarmTime > 0) egGateWarmTime--;
+  
+  for (size_t ch = 0; ch < kNumChannels; ch++) {
+    
+    // Set params
+    eg[ch].SetDelayLength  (block->cv_slider[0]);
+    eg[ch].SetAttackLength (block->cv_slider[1]);
+    eg[ch].SetHoldLength   (block->cv_slider[2]);
+    eg[ch].SetDecayLength  (block->cv_slider[3]);
+    eg[ch].SetSustainLevel (block->cv_slider[4]);
+    eg[ch].SetReleaseLength(block->cv_slider[5]);
+    
+    // Gate or button?
+    bool gate = ui.switches().pressed(ch);
+    if (!gate && egGateWarmTime == 0 && block->input_patched[ch]) {
+      for (size_t i = 0; i < size; i++) {
+        if (block->input[ch][i] & GATE_FLAG_HIGH) {
+          gate = true;
+          break;
+        }
+      }
+    }
+    eg[ch].Gate(gate);
+    ui.set_led(ch, gate ? LED_COLOR_RED : LED_COLOR_OFF);
+    
+    // Compute value and set as output
+    float value = eg[ch].Value();
+    for (size_t i = 0; i < size; i++) {
+      block->output[ch][i] = settings.dac_code(ch, value);
+    }
+    
+    // Display current stage
+    switch (eg[ch].CurrentStage()) {
+      case DELAY:
+      case ATTACK:
+      case HOLD:
+      case DECAY:
+        ui.set_led(ch, LED_COLOR_GREEN);
+        break;
+      case SUSTAIN:
+        ui.set_led(ch, LED_COLOR_YELLOW);
+        break;
+      case RELEASE:
+        ui.set_led(ch, LED_COLOR_RED);
+        break;
+      default:
+        ui.set_led(ch, LED_COLOR_OFF);
+        break;
+    }
+    
+  }
+  
+}
+
 void Init() {
   System sys;
   sys.Init(true);
   dac.Init(int(kSampleRate), 2);
   gate_inputs.Init();
   io_buffer.Init();
+  
   settings.Init();
+  for (size_t i = 0; i < kNumChannels; ++i) {
+    eg[i].Init();
+  }
   std::fill(&no_gate[0], &no_gate[kBlockSize], GATE_FLAG_LOW);
+  
   cv_reader.Init(&settings);
+  
   ui.Init(&settings);
+  
   sys.StartTimers();
   dac.Start(&FillBuffer);
 }
@@ -133,6 +208,6 @@ void Init() {
 int main(void) {
   Init();
   while (1) {
-    io_buffer.Process(&ProcessTest);
+    io_buffer.Process(&ProcessSixEg);
   }
 }
