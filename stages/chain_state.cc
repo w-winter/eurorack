@@ -42,8 +42,7 @@ const uint32_t kRightKey = stmlib::FourCC<'o', 'v', 'e', 'r'>::value;
 
 // How long before unpatching an input actually breaks the chain.
 const uint32_t kUnpatchedInputDelay = 2000;
-const int32_t kLongPressDuration = 400;
-const int32_t kLongPressDurationForOuroborosToggle = 5000;
+const int32_t kLongPressDuration = 500;
 
 void ChainState::Init(SerialLink* left, SerialLink* right) {
   index_ = 0;
@@ -76,14 +75,12 @@ void ChainState::Init(SerialLink* left, SerialLink* right) {
   request_.request = REQUEST_NONE;
   
   discovering_neighbors_ = true;
-  ouroboros_ = false;
-  ouroboros_toggle_ = false;
   counter_ = 0;
   num_internal_bindings_ = 0;
   num_bindings_ = 0;
 }
 
-void ChainState::DiscoverNeighbors(Settings* settings) {
+void ChainState::DiscoverNeighbors() {
   // Between t = 500ms and t = 1500ms, ping the neighbors every 50ms
   if (counter_ >= 2000 &&
       counter_ <= 6000 &&
@@ -108,13 +105,10 @@ void ChainState::DiscoverNeighbors(Settings* settings) {
     size_ = std::max(size_, size_t(r->counter));
   }
   
-  ouroboros_ = index_ >= kMaxChainSize || size_ > kMaxChainSize;
-  
-  // After 1.25s, checks for the ouroboros toggle in the permanent settings
-  if (counter_ == 5000) ouroboros_toggle_ = (settings->state().ouroboros_toggle == 0x01);
+  bool ouroboros_ = index_ >= kMaxChainSize || size_ > kMaxChainSize;
 
   // The discovery phase lasts 2000ms.
-  discovering_neighbors_ = counter_ < 8000 && !ouroboros_ && !ouroboros_toggle_;
+  discovering_neighbors_ = counter_ < 8000 && !ouroboros_;
   if (discovering_neighbors_) {
     ++counter_;
   } else {
@@ -449,7 +443,7 @@ ChainState::RequestPacket ChainState::MakeLoopChangeRequest(
   return result;
 }
 
-void ChainState::PollSwitches(Settings* settings) {
+void ChainState::PollSwitches() {
   // The last module in the chain polls the states of the switches for the
   // entire chain. The state of the switches has been passed from left
   // to right.
@@ -469,7 +463,7 @@ void ChainState::PollSwitches(Settings* settings) {
       ChannelBitmask switch_pressed = switch_pressed_[i];
       for (size_t j = 0; j < kNumChannels; ++j) {
         if (switch_pressed & 1) {
-          if (switch_press_time_[switch_index] > -1) {
+          if (switch_press_time_[switch_index] != -1) {
             ++switch_press_time_[switch_index];
             if (first_pressed != kMaxNumChannels) {
               // Simultaneously pressing a pair of buttons.
@@ -482,13 +476,6 @@ void ChainState::PollSwitches(Settings* settings) {
               switch_press_time_[switch_index] = -1;
             } else {
               first_pressed = switch_index;
-            }
-          } else {
-            // Still pressed after detecting a long press, detect ouroboros toggle
-            --switch_press_time_[switch_index]; // Count ms backwards
-            if (switch_press_time_[switch_index] < -kLongPressDurationForOuroborosToggle) {
-              this->ouroboros_toggle(settings); // Toggle ouroboros mode
-              switch_press_time_[switch_index] = -1;
             }
           }
         } else {
@@ -554,13 +541,13 @@ void ChainState::Update(
     SegmentGenerator* segment_generator,
     SegmentGenerator::Output* out) {
   if (discovering_neighbors_) {
-    DiscoverNeighbors(settings);
+    DiscoverNeighbors();
     return;
   }
   
   switch (counter_ & 0x3) {
     case 0:
-      PollSwitches(settings);
+      PollSwitches();
       UpdateLocalState(block, *settings, out[kBlockSize - 1]);
       TransmitRight();
       break;
@@ -583,18 +570,6 @@ void ChainState::Update(
   fill(&out[0], &out[kBlockSize], rx_last_sample_);
   
   ++counter_;
-}
-
-void ChainState::ouroboros_toggle(Settings* settings) { 
-  
-  // Toggle
-  this->ouroboros_toggle_ = !(this->ouroboros_toggle_);
-  
-  // Save the toggle value into permanent settings
-  State* state = settings->mutable_state();
-  state->ouroboros_toggle = this->ouroboros_toggle_ ? 0x01 : 0x00; 
-  settings->SaveState();
-  
 }
 
 }  // namespace stages

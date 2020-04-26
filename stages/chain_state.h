@@ -62,9 +62,6 @@ class ChainState {
   inline size_t size() const { return size_; }
   
   inline bool discovering_neighbors() const { return discovering_neighbors_; }
-  inline bool ouroboros() const { return ouroboros_ || ouroboros_toggle_; }
-  
-  void ouroboros_toggle(Settings* settings);
   
   // Internally, we only store a loop bit for each channel - but the UI needs
   // to know more than that. It needs to know whether a channel with a loop bit
@@ -87,7 +84,7 @@ class ChainState {
   }
   
  private:
-  void DiscoverNeighbors(Settings* settings);
+  void DiscoverNeighbors();
 
   void TransmitRight();
   void TransmitLeft();
@@ -100,7 +97,7 @@ class ChainState {
       const SegmentGenerator::Output& last_out);
   void UpdateLocalPotCvSlider(const IOBuffer::Block& block);
   void Configure(SegmentGenerator* segment_generator);
-  void PollSwitches(Settings* settings);
+  void PollSwitches();
   void BindRemoteParameters(SegmentGenerator* segment_generator);
   void BindLocalParameters(
       const IOBuffer::Block& block, SegmentGenerator* segment_generator);
@@ -251,8 +248,6 @@ class ChainState {
   RequestPacket request_;
   
   bool discovering_neighbors_;
-  bool ouroboros_;
-  bool ouroboros_toggle_;
   uint32_t counter_;
   
   Packet left_tx_packet_;

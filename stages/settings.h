@@ -32,9 +32,16 @@
 #include "stmlib/stmlib.h"
 #include "stmlib/system/storage.h"
 
-#include "stages/chain_state.h"
+#include "stages/io_buffer.h"
 
 namespace stages {
+
+enum MultiMode {
+  MULTI_MODE_STAGES = 0,
+  MULTI_MODE_STAGES_SLOW_LFO = 2,
+  MULTI_MODE_SIX_EG = 3,
+  MULTI_MODE_OUROBOROS = 1
+};
 
 struct ChannelCalibrationData {
   float adc_offset;
@@ -59,7 +66,7 @@ struct PersistentData {
 struct State {
   uint8_t segment_configuration[kNumChannels];
   uint8_t color_blind;
-  uint8_t ouroboros_toggle;
+  uint8_t multimode;
   enum { tag = 0x54415453 };  // STAT
 };
 

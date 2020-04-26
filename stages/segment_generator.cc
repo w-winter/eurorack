@@ -52,8 +52,10 @@ const int kRetrigDelaySamples = 32;
 // sync).
 const size_t kSampleAndHoldDelay = kSampleRate * 2 / 1000;  // 2 milliseconds
 
-void SegmentGenerator::Init() {
+void SegmentGenerator::Init(Settings* settings) {
   process_fn_ = &SegmentGenerator::ProcessMultiSegment;
+  
+  settings_ = settings;
   
   phase_ = 0.0f;
 
@@ -318,7 +320,10 @@ void SegmentGenerator::ProcessFreeRunningLFO(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
   float f = 96.0f * (parameters_[0].primary - 0.5f);
   CONSTRAIN(f, -128.0f, 127.0f);
-  const float frequency = SemitonesToRatio(f) * 2.0439497f / kSampleRate;
+  
+  MultiMode multimode = (MultiMode) settings_->state().multimode;
+  const float multiplier = multimode == MULTI_MODE_STAGES_SLOW_LFO ? 0.125f : 1.0f;
+  const float frequency = SemitonesToRatio(f) * 2.0439497f / kSampleRate * multiplier;
 
   active_segment_ = 0;
   for (size_t i = 0; i < size; ++i) {

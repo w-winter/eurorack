@@ -36,6 +36,7 @@
 #include "stages/delay_line_16_bits.h"
 
 #include "stages/ramp_extractor.h"
+#include "stages/settings.h"
 
 namespace stages {
 
@@ -104,7 +105,7 @@ class SegmentGenerator {
     int8_t if_complete;
   };
   
-  void Init();
+  void Init(Settings* settings);
   
   typedef void (SegmentGenerator::*ProcessFn)(
       const stmlib::GateFlags* gate_flags, Output* out, size_t size);
@@ -185,6 +186,8 @@ class SegmentGenerator {
   int retrig_delay_;
   
   int num_segments_;
+  
+  Settings* settings_;
   
   ProcessFn process_fn_;
   

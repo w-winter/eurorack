@@ -27,6 +27,7 @@
 // User interface
 
 #include "stages/ui.h"
+#include "stages/chain_state.h"
 
 #include <algorithm>
 
@@ -35,10 +36,20 @@
 using namespace std;
 using namespace stmlib;
 
-const int32_t kLongPressDuration = 400;
-const int32_t kLongPressDurationForOuroborosToggle = 5000;
+const int32_t kLongPressDuration = 500;
+const int32_t kLongPressDurationForMultiModeToggle = 5000;
 
 namespace stages {
+
+/* static */
+const MultiMode Ui::multimodes_[6] = {
+  MULTI_MODE_STAGES, // Mode enabled by long pressing the left-most button
+  MULTI_MODE_STAGES,
+  MULTI_MODE_STAGES,
+  MULTI_MODE_STAGES_SLOW_LFO,
+  MULTI_MODE_SIX_EG,
+  MULTI_MODE_OUROBOROS // Mode enabled by long pressing the right-most button
+};
 
 /* static */
 const LedColor Ui::palette_[4] = {
@@ -54,10 +65,14 @@ void Ui::Init(Settings* settings, ChainState* chain_state) {
   
   system_clock.Init();
   fill(&press_time_[0], &press_time_[kNumSwitches], 0);
+  fill(&press_time_multimode_toggle_[0], &press_time_multimode_toggle_[kNumSwitches], 0);
   
   settings_ = settings;
   mode_ = UI_MODE_NORMAL;
   chain_state_ = chain_state;
+  
+  displaying_multimode_toggle_ = 0;
+  displaying_multimode_toggle_pressed_ = 0;
   
   if (switches_.pressed_immediate(0)) {
     State* state = settings_->mutable_state();
@@ -78,26 +93,22 @@ void Ui::Poll() {
   
   switches_.Debounce();
   
-  if (chain_state_->ouroboros()) {
+  MultiMode multimode = (MultiMode) settings_->state().multimode;
+  
+  if (multimode == MULTI_MODE_OUROBOROS) {
+    
     State* s = settings_->mutable_state();
     for (int i = 0; i < kNumSwitches; ++i) {
       if (switches_.pressed(i)) {
-        if (press_time_[i] > -1) {
+        if (press_time_[i] != -1) {
           ++press_time_[i];
-          if (press_time_[i] > kLongPressDuration) {
-            uint8_t loop_bit = s->segment_configuration[i] & 0x4;
-            uint8_t type_bits = s->segment_configuration[i] & 0x03;
-            s->segment_configuration[i] = type_bits | (4 - loop_bit);
-            settings_->SaveState();
-            press_time_[i] = -1;
-          }
-        } else {
-          // Still pressed after detecting a long press, detect ouroboros toggle
-          --press_time_[i]; // Count ms backwards
-          if (press_time_[i] < -kLongPressDurationForOuroborosToggle) {
-            chain_state_->ouroboros_toggle(settings_); // Toggle ouroboros mode
-            press_time_[i] = -1;
-          }
+        }
+        if (press_time_[i] > kLongPressDuration) {
+          uint8_t loop_bit = s->segment_configuration[i] & 0x4;
+          uint8_t type_bits = s->segment_configuration[i] & 0x03;
+          s->segment_configuration[i] = type_bits | (4 - loop_bit);
+          settings_->SaveState();
+          press_time_[i] = -1;
         }
       } else {
         if (press_time_[i] > 0) {
@@ -109,7 +120,9 @@ void Ui::Poll() {
         press_time_[i] = 0;
       }
     }
-  } else {
+    
+  } else if (multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO) {
+    
     ChainState::ChannelBitmask pressed = 0;
     for (int i = 0; i < kNumSwitches; ++i) {
       if (switches_.pressed(i)) {
@@ -117,7 +130,39 @@ void Ui::Poll() {
       }
     }
     chain_state_->set_local_switch_pressed(pressed);
+    
   }
+  
+  // Detect very long presses for multi-mode toggle (using a negative counter)
+  for (uint8_t i = 0; i < kNumSwitches; ++i) {
+    if (switches_.pressed(i)) {
+      if (press_time_multimode_toggle_[i] != -1) {
+        ++press_time_multimode_toggle_[i];
+      }
+      if (press_time_multimode_toggle_[i] > kLongPressDurationForMultiModeToggle) {
+        MultiModeToggle(i);
+        press_time_multimode_toggle_[i] = -1;
+      }
+    } else {
+      press_time_multimode_toggle_[i] = 0;
+    }
+  }
+  
+}
+
+void Ui::MultiModeToggle(const uint8_t i) {
+  
+  // Save the toggle value into permanent settings (if necessary)
+  State* state = settings_->mutable_state();
+  if (state->multimode != (uint8_t) multimodes_[i]) {
+    state->multimode = (uint8_t) multimodes_[i];
+    settings_->SaveState();
+  }
+  
+  // Display visual feedback
+  displaying_multimode_toggle_pressed_ = i;
+  displaying_multimode_toggle_ = 1000;
+  
 }
 
 inline uint8_t Ui::FadePattern(uint8_t shift, uint8_t phase) const {
@@ -130,7 +175,10 @@ inline uint8_t Ui::FadePattern(uint8_t shift, uint8_t phase) const {
 void Ui::UpdateLEDs() {
   leds_.Clear();
 
+  MultiMode multimode = (MultiMode) settings_->state().multimode;
+
   if (mode_ == UI_MODE_FACTORY_TEST) {
+    
     size_t counter = (system_clock.milliseconds() >> 8) % 3;
     for (size_t i = 0; i < kNumChannels; ++i) {
       if (slider_led_counter_[i] == 0) {
@@ -145,7 +193,9 @@ void Ui::UpdateLEDs() {
         leds_.set(LED_GROUP_SLIDER + i, LED_COLOR_GREEN);
       }
     }
+    
   } else if (chain_state_->discovering_neighbors()) {
+    
     size_t counter = system_clock.milliseconds() >> 5;
     size_t n = chain_state_->size() * kNumChannels;
     counter = counter % (2 * n - 2);
@@ -159,46 +209,84 @@ void Ui::UpdateLEDs() {
         leds_.set(LED_GROUP_SLIDER + counter, LED_COLOR_GREEN);
       }
     }
+    
   } else {
-    uint8_t pwm = system_clock.milliseconds() & 0xf;
-    uint8_t fade_patterns[4] = {
-      0xf,  // NONE
-      FadePattern(4, 0),  // START
-      FadePattern(4, 0x0f),  // END
-      FadePattern(4, 0x08),  // SELF
-    };
-    for (size_t i = 0; i < kNumChannels; ++i) {
-      uint8_t configuration = settings_->state().segment_configuration[i];
-      uint8_t type = configuration & 0x3;
-      int brightness = fade_patterns[chain_state_->ouroboros()
-          ? (configuration & 0x4 ? 3 : 0)
-          : chain_state_->loop_status(i)];
-      LedColor color = palette_[type];
-      if (settings_->state().color_blind == 1) {
-        if (type == 0) {
-          color = LED_COLOR_GREEN;
-          uint8_t modulation = FadePattern(6, 13 - (2 * i)) >> 1;
-          brightness = brightness * (7 + modulation) >> 4;
-        } else if (type == 1) {
-          color = LED_COLOR_YELLOW;
-          brightness = brightness >= 0x8 ? 0xf : 0;
-        } else if (type == 2) {
-          color = LED_COLOR_RED;
-          brightness = brightness >= 0xc ? 0x1 : 0;
-        }
+    
+    if (displaying_multimode_toggle_ > 0) {
+      
+      // Displaying the multi-mode toggle visual feedback
+      --displaying_multimode_toggle_;
+      for (size_t i = 0; i < kNumChannels; ++i) {
+        leds_.set(LED_GROUP_UI + i, displaying_multimode_toggle_pressed_ == i ? LED_COLOR_YELLOW : LED_COLOR_OFF);
       }
-      leds_.set(
-          LED_GROUP_UI + i,
-          (brightness >= pwm && brightness != 0) ? color : LED_COLOR_OFF);
-      leds_.set(
-          LED_GROUP_SLIDER + i,
-          slider_led_counter_[i] ? LED_COLOR_GREEN : LED_COLOR_OFF);
+      
+    } else if (multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO || multimode == MULTI_MODE_OUROBOROS) {
+      
+      // LEDs update for original Stage modes (Stages, slow LFO variant and Ouroboros)
+      uint8_t pwm = system_clock.milliseconds() & 0xf;
+      uint8_t fade_patterns[4] = {
+        0xf,  // NONE
+        FadePattern(4, 0),  // START
+        FadePattern(4, 0x0f),  // END
+        FadePattern(4, 0x08),  // SELF
+      };
+      for (size_t i = 0; i < kNumChannels; ++i) {
+        uint8_t configuration = settings_->state().segment_configuration[i];
+        uint8_t type = configuration & 0x3;
+        int brightness = fade_patterns[multimode == MULTI_MODE_OUROBOROS
+            ? (configuration & 0x4 ? 3 : 0)
+            : chain_state_->loop_status(i)];
+        LedColor color = palette_[type];
+        if (settings_->state().color_blind == 1) {
+          if (type == 0) {
+            color = LED_COLOR_GREEN;
+            uint8_t modulation = FadePattern(6, 13 - (2 * i)) >> 1;
+            brightness = brightness * (7 + modulation) >> 4;
+          } else if (type == 1) {
+            color = LED_COLOR_YELLOW;
+            brightness = brightness >= 0x8 ? 0xf : 0;
+          } else if (type == 2) {
+            color = LED_COLOR_RED;
+            brightness = brightness >= 0xc ? 0x1 : 0;
+          }
+        }
+        leds_.set(
+            LED_GROUP_UI + i,
+            (brightness >= pwm && brightness != 0) ? color : LED_COLOR_OFF);
+        leds_.set(
+            LED_GROUP_SLIDER + i,
+            slider_led_counter_[i] ? LED_COLOR_GREEN : LED_COLOR_OFF);
+      }
+      
+    } else if (multimode == MULTI_MODE_SIX_EG) {
+      
+      // LEDs update for 6EG mode
+      for (size_t i = 0; i < kNumChannels; ++i) {
+        leds_.set(LED_GROUP_UI + i, led_color_[i]);
+        leds_.set(LED_GROUP_SLIDER + i, slider_led_counter_[i] ? LED_COLOR_GREEN : LED_COLOR_OFF);
+      }
+      
+    } else {
+      
+      // Invalid mode, turn all off
+      for (size_t i = 0; i < kNumChannels; ++i) {
+        leds_.set(LED_GROUP_UI + i, LED_COLOR_OFF);
+        leds_.set(LED_GROUP_SLIDER + i, LED_COLOR_OFF);
+      }
+      
+    }
+    
+    // For any multi-mode, update slider LEDs counters
+    for (size_t i = 0; i < kNumChannels; ++i) {
       if (slider_led_counter_[i]) {
         --slider_led_counter_[i];
       }
     }
+    
   }
+  
   leds_.Write();
+  
 }
 
 }  // namespace stages

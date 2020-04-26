@@ -55,7 +55,11 @@ class Ui {
   void Init(Settings* settings, ChainState* chain_state);
   void Poll();
   void DoEvents();
-
+  
+  void set_led(int i, LedColor color) {
+    led_color_[i] = color;
+  }
+    
   void set_slider_led(int i, bool value, int duration) {
     if (value) {
       slider_led_counter_[i] = duration;
@@ -71,21 +75,29 @@ class Ui {
  private:
   void OnSwitchPressed(const stmlib::Event& e);
   void OnSwitchReleased(const stmlib::Event& e);
-   
+  
+  void MultiModeToggle(const uint8_t i);
+  
   void UpdateLEDs();
   uint8_t FadePattern(uint8_t shift, uint8_t phase) const;
 
   Leds leds_;
   Switches switches_;
   
+  LedColor led_color_[kNumLEDs];
   int slider_led_counter_[kNumLEDs];
   int press_time_[kNumSwitches];
+  int press_time_multimode_toggle_[kNumSwitches];
 
   Settings* settings_;
   ChainState* chain_state_;
   
   UiMode mode_;
+  
+  int displaying_multimode_toggle_;
+  uint8_t displaying_multimode_toggle_pressed_;
 
+  static const MultiMode multimodes_[6];
   static const LedColor palette_[4];
   
   DISALLOW_COPY_AND_ASSIGN(Ui);
