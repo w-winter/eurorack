@@ -4,7 +4,7 @@
 #include <algorithm>
 
 const float kMinStageLength = 0.001f;
-const float timeScale = 10000.0f; // 4000 is 1 second
+const float timeScale = 4000.0f * 10; // 4000 is 1 second
 
 namespace stages {
   
@@ -20,6 +20,10 @@ namespace stages {
     decayLength = 0L;
     sustainLevel = 0.0f;
     releaseLength = 0L;
+    
+    attackCurve = 0.5f;
+    decayCurve = 0.5f;
+    releaseCurve = 0.5f;
     
     gate = false;
     value = 0.0f;
@@ -72,7 +76,7 @@ namespace stages {
     switch (stage) {
       
       case ATTACK:
-        value = Interpolate(stageStartValue, 1.0f, stageTime, attackLength);
+        value = Interpolate(stageStartValue, 1.0f, stageTime, attackLength, attackCurve);
         break;
       
       case HOLD:
@@ -80,7 +84,7 @@ namespace stages {
         break;
       
       case DECAY:
-        value = Interpolate(1.0f, sustainLevel, stageTime, decayLength);
+        value = Interpolate(1.0f, sustainLevel, stageTime, decayLength, decayCurve);
         break;
       
       case SUSTAIN:
@@ -88,7 +92,7 @@ namespace stages {
         break;
       
       case RELEASE:
-        value = Interpolate(stageStartValue, 0.0f, stageTime, releaseLength);
+        value = Interpolate(stageStartValue, 0.0f, stageTime, releaseLength, releaseCurve);
         break;
         
       default:
@@ -114,12 +118,21 @@ namespace stages {
   
   void Envelope::SetStageLength(float f, long *field) {
     
-    // If factor is above threshold, set the length in time units, according to time scale
+    // If factor is above threshold, set the length in time units, according to time scale.
+    // Use a curve so smaller values can be dialed in more precisely, despite big time scales.
     if (f >= kMinStageLength) {
-      *field = std::max(0L, (long)((f - kMinStageLength) * timeScale));
+      float ff = WarpPhase(f - kMinStageLength, 0.25f);
+      *field = std::max(0L, (long)(ff * timeScale));
     } else {
       *field = 0L;
     }
+    
+  }
+  
+  void Envelope::SetStageCurve(float f, float *field) {
+    
+    // Set curve factor
+    *field = f;
     
   }
   
@@ -130,12 +143,25 @@ namespace stages {
     
   }
   
-  float Envelope::Interpolate(float from, float to, long time, long length) {
+  float Envelope::Interpolate(float from, float to, long time, long length, float curve) {
     
-    // Linear interpolation
-    // TODO: Interpolate with exp/lin/log continuos function depending on param f=[0..1]
-    float t = (float)time / length;
+    // Interpolate values depending on the amount of time elapsed in respoet to total length.
+    // Interpolation is linear for curve = 0.5, ease-in for curve < 0.5, ease-out for curve > 0.5.
+    float t = WarpPhase((float)time / length, curve);
     return from + (to - from) * t;
+    
+  }
+  
+  float Envelope::WarpPhase(float t, float curve) {
+    
+    // Curve generator for interpolation, copied from SegmentGenerator::WarpPhase
+    curve -= 0.5f;
+    const bool flip = curve < 0.0f;
+    if (flip) t = 1.0f - t;
+    const float a = 128.0f * curve * curve;
+    t = (1.0f + a) * t / (1.0f + a * t);
+    if (flip) t = 1.0f - t;
+    return t;
     
   }
   

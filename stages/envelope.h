@@ -29,6 +29,10 @@ class Envelope {
     inline void SetSustainLevel (float f) { sustainLevel = f - 0.001f;         };
     inline void SetReleaseLength(float f) { SetStageLength(f, &releaseLength); };
     
+    inline void SetAttackCurve (float f) { SetStageCurve(f, &attackCurve);  };
+    inline void SetDecayCurve  (float f) { SetStageCurve(f, &decayCurve);   };
+    inline void SetReleaseCurve(float f) { SetStageCurve(f, &releaseCurve); };
+    
     inline bool HasDelay  () { return HasStageLength(&delayLength  ); };
     inline bool HasAttack () { return HasStageLength(&attackLength ); };
     inline bool HasHold   () { return HasStageLength(&holdLength   ); };
@@ -44,12 +48,6 @@ class Envelope {
 	
   private:
     
-    void SetStage(EnvelopeStage stage);
-    void SetStageLength(float f, long *field);
-    bool HasStageLength(long *field);
-    
-    float Interpolate(float from, float to, long time, long length);
-    
     EnvelopeStage stage;
     long stageTime;
     float stageStartValue;
@@ -61,9 +59,21 @@ class Envelope {
     float sustainLevel;
     long releaseLength;
     
+    float attackCurve;
+    float decayCurve;
+    float releaseCurve;
+    
     bool gate;
     float value;
   
+    void SetStage(EnvelopeStage stage);
+    void SetStageLength(float f, long *field);
+    void SetStageCurve(float f, float *field);
+    bool HasStageLength(long *field);
+    
+    float Interpolate(float from, float to, long time, long length, float curve = 0.5f);
+    float WarpPhase(float t, float curve);
+    
 };
 
 }

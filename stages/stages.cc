@@ -134,7 +134,12 @@ void ProcessSixEg(IOBuffer::Block* block, size_t size) {
   
   for (size_t ch = 0; ch < kNumChannels; ch++) {
     
-    // Set params
+    // Set pots params
+    eg[ch].SetAttackCurve (block->pot[1]);
+    eg[ch].SetDecayCurve  (block->pot[3]);
+    eg[ch].SetReleaseCurve(block->pot[5]);
+    
+    // Set slider params
     eg[ch].SetDelayLength  (block->cv_slider[0]);
     eg[ch].SetAttackLength (block->cv_slider[1]);
     eg[ch].SetHoldLength   (block->cv_slider[2]);
