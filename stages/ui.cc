@@ -45,10 +45,10 @@ namespace stages {
 const MultiMode Ui::multimodes_[6] = {
   MULTI_MODE_STAGES, // Mode enabled by long pressing the left-most button
   MULTI_MODE_STAGES,
-  MULTI_MODE_STAGES,
   MULTI_MODE_STAGES_SLOW_LFO,
   MULTI_MODE_SIX_EG,
-  MULTI_MODE_OUROBOROS // Mode enabled by long pressing the right-most button
+  MULTI_MODE_OUROBOROS,
+  MULTI_MODE_OUROBOROS_ALTERNATE, // Mode enabled by long pressing the right-most button
 };
 
 /* static */
@@ -95,7 +95,7 @@ void Ui::Poll() {
   
   MultiMode multimode = (MultiMode) settings_->state().multimode;
   
-  if (multimode == MULTI_MODE_OUROBOROS) {
+  if (multimode == MULTI_MODE_OUROBOROS || multimode == MULTI_MODE_OUROBOROS_ALTERNATE) {
     
     State* s = settings_->mutable_state();
     for (int i = 0; i < kNumSwitches; ++i) {
@@ -220,7 +220,10 @@ void Ui::UpdateLEDs() {
         leds_.set(LED_GROUP_UI + i, displaying_multimode_toggle_pressed_ == i ? LED_COLOR_YELLOW : LED_COLOR_OFF);
       }
       
-    } else if (multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO || multimode == MULTI_MODE_OUROBOROS) {
+    } else if (
+      multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO || 
+      multimode == MULTI_MODE_OUROBOROS || multimode == MULTI_MODE_OUROBOROS_ALTERNATE
+    ) {
       
       // LEDs update for original Stage modes (Stages, slow LFO variant and Ouroboros)
       uint8_t pwm = system_clock.milliseconds() & 0xf;
@@ -233,9 +236,11 @@ void Ui::UpdateLEDs() {
       for (size_t i = 0; i < kNumChannels; ++i) {
         uint8_t configuration = settings_->state().segment_configuration[i];
         uint8_t type = configuration & 0x3;
-        int brightness = fade_patterns[multimode == MULTI_MODE_OUROBOROS
+        int brightness = fade_patterns[
+          (multimode == MULTI_MODE_OUROBOROS || multimode == MULTI_MODE_OUROBOROS_ALTERNATE)
             ? (configuration & 0x4 ? 3 : 0)
-            : chain_state_->loop_status(i)];
+            : chain_state_->loop_status(i)
+          ];
         LedColor color = palette_[type];
         if (settings_->state().color_blind == 1) {
           if (type == 0) {

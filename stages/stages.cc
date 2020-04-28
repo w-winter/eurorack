@@ -223,9 +223,13 @@ void ProcessOuroboros(IOBuffer::Block* block, size_t size) {
   
   std::fill(&sum[0], &sum[size], 0.0f);
   
+  bool alternate = (MultiMode) settings.state().multimode == MULTI_MODE_OUROBOROS_ALTERNATE;
+  float *blockHarmonic = alternate ? block->cv_slider : block->pot;
+  float *blockAmplitude = alternate ? block->pot : block->cv_slider;
+  
   for (int channel = kNumChannels - 1; channel >= 0; --channel) {
     
-    const float harmonic = block->pot[channel] * 9.999f;
+    const float harmonic = blockHarmonic[channel] * 9.999f;
     MAKE_INTEGRAL_FRACTIONAL(harmonic);
     harmonic_fractional = 8.0f * (harmonic_fractional - 0.5f) + 0.5f;
     CONSTRAIN(harmonic_fractional, 0.0f, 1.0f);
@@ -235,7 +239,7 @@ void ProcessOuroboros(IOBuffer::Block* block, size_t size) {
         harmonic_fractional);
     const float amplitude = channel == 0
         ? 1.0f
-        : std::max(block->cv_slider[channel], 0.0f);
+        : std::max(blockAmplitude[channel], 0.0f);
     bool trigger = false;
     for (size_t i = 0; i < size; ++i) {
       trigger = trigger || (block->input[channel][i] & GATE_FLAG_RISING);
@@ -246,7 +250,7 @@ void ProcessOuroboros(IOBuffer::Block* block, size_t size) {
       channel_amplitude[channel] *= 0.999f;
     }
     ui.set_slider_led(
-        channel, channel_amplitude[channel] * amplitude > 0.00001f, 1);
+        channel, channel_amplitude[channel] * amplitude > 0.001f, 1);
     const float f = f0 * ratio;
     
     uint8_t waveshape = settings.state().segment_configuration[channel];
@@ -371,6 +375,7 @@ int main(void) {
           io_buffer.Process(&ProcessSixEg);
           break;
         case MULTI_MODE_OUROBOROS:
+        case MULTI_MODE_OUROBOROS_ALTERNATE:
           io_buffer.Process(&ProcessOuroboros);
           break;
         default:

@@ -25,10 +25,10 @@ Hold one of the six buttons for 5 seconds to change mode. This setting is persis
 
 1. Segment generator
 2. Segment generator
-3. Segment generator
-4. Segment generator with [slower free-running LFOs](#slower-free-running-lfos)
-5. [Six DAHDSR envelope generators](#six-dahdsr-envelope-generators)
-6. [Harmonic oscillator](#harmonic-oscillator), aka Ouroboros mode
+3. Segment generator with [slower free-running LFOs](#slower-free-running-lfos)
+4. [Six DAHDSR envelope generators](#six-dahdsr-envelope-generators)
+5. [Harmonic oscillator](#harmonic-oscillator), aka Ouroboros mode
+6. Harmonic oscillator with [alternate controls](#harmonic-oscillator-with-alternate-controls)
 
 For **segment generator** mode, refer to the official [Stages manual][4]. For the other modes, see below.
 
@@ -75,7 +75,7 @@ The left-most column of the module acts a little different from the others:
 - CV is a **1V/oct** input for the root pitch
 - Output is an **audio mix** of all the harmonics
 
-Each one of the next five columns controls an additional ratio of the harmonic serie:
+Each one of the next five columns controls a partial:
 
 - Pot selects the **harmonic ratio** in relation to the root pitch
 - Slider and CV input control its **volume** in the mix
@@ -89,6 +89,16 @@ The **buttons** cycle through different waveform for each harmonic, including th
 - Flashing green (long-press): **sawtooth**
 - Flashing orange: square with **small pulse width**
 - Flashing red: square with **smaller pulse width**
+
+
+### Harmonic oscillator with alternate controls
+
+Same as harmonic oscillator, but controls for each additional ratio (columns 2 to 6) are swapped:
+
+- Pot controls the **volume** in the mix
+- Slider and CV input sets the **harmonic ratio** in relation to the root pitch
+
+This way is possibile to modulate (and therefore sequence) the harmonics with external CV.
 
 
 Feedback
