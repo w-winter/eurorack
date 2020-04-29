@@ -1,7 +1,7 @@
 Mutable Instruments Stages multi-mode firmware
 ==============================================
 
-This is a unofficial non-supported firmware for Mutable Instruments Stages. It started as a modification to let you enter and exit the "ouroboros" mode (the **harmonic oscillator** easter egg) at runtime, while the module is powered on. Then, it evolved adding the ability to enable **slower free-running LFOs** and a completely alternative mode that transforms the module into a **six identical DAHDSR envelope generators**.
+This is a unofficial firmware for Mutable Instruments Stages. It started as a modification to let you enter and exit the "ouroboros" mode (the **harmonic oscillator** easter egg) at runtime, while the module is powered on. Then, it evolved adding the ability to sequence harmonic ratios, enable slower free-running LFOs and providing a completely alternative mode that transforms the module into a **six identical DAHDSR envelope generators**.
 
 ⚠️ **Warning:** This firmware has **not** been tested on multiple [chained][1] modules. It could behave strangely if chained. Obviously I'm not responsible for any issue you might encounter.
 
@@ -57,9 +57,7 @@ Each duration goes from 0 to 10 seconds. Each value can be **modulated** using *
 
 **SHAPE/TIME** pots 1, 3 and 5 control the **shape** of the corresponding ramp stages, from accelerating through linear, to decelerating. Pots 2, 4 and 6 are unused.
 
-**GATE** inputs are used to activate each of the six envelopes, which can be taken from the corresponding outputs on the bottom of the module.
-
-LEDs below pots show the current phase of each envelope: green for delay/attack/hold/decay, orange for sustain, red for release, off when idle. Pressing a **button** will trigger the corresponding envelope manually, like it's a gate signal.
+**GATE** inputs are used to activate each of the six envelopes, which can be taken from the corresponding outputs on the bottom of the module. LEDs below pots show the current phase of each envelope: green for delay/attack/hold/decay, orange for sustain, red for release, off when idle. Pressing a **button** will trigger the corresponding envelope manually, like it's a gate signal.
 
 
 ### Harmonic oscillator
