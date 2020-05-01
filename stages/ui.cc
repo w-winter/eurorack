@@ -37,7 +37,6 @@ using namespace std;
 using namespace stmlib;
 
 const int32_t kLongPressDuration = 500;
-const int32_t kLongPressDurationForMultiModeToggle = 5000;
 
 namespace stages {
 
@@ -103,35 +102,34 @@ void Ui::Poll() {
         if (press_time_[i] != -1) {
           ++press_time_[i];
         }
-        if (press_time_[i] > kLongPressDuration) {
-          uint8_t loop_bit = s->segment_configuration[i] & 0x4;
-          uint8_t type_bits = s->segment_configuration[i] & 0x03;
-          s->segment_configuration[i] = type_bits | (4 - loop_bit);
-          settings_->SaveState();
-          press_time_[i] = -1;
-        }
       } else {
-        if (press_time_[i] > 0) {
-          uint8_t loop_bit = s->segment_configuration[i] & 0x4;
-          uint8_t type_bits = s->segment_configuration[i] & 0x03;
-          s->segment_configuration[i] = ((type_bits + 1) % 3) | loop_bit;
+        if (press_time_[i] > kLongPressDuration) { // Long-press
+          if (press_time_[i] < kLongPressDurationForMultiModeToggle) { // But not long enough for multi-mode toggle
+            s->segment_configuration[i] ^= 0b01000000; // Toggle waveshape MSB
+            settings_->SaveState();
+          }
+        } else if (press_time_[i] > 0) {
+          uint8_t type_bits = (s->segment_configuration[i] & 0b00110000) >> 4; // Get current waveshape LSB number
+          s->segment_configuration[i] &= ~0b00110000; // Reset waveshape LSB bits
+          s->segment_configuration[i] |= (((type_bits + 1) % 3) << 4); // Cycle through 0,1,2 and set LSB bits
           settings_->SaveState();
         }
         press_time_[i] = 0;
       }
     }
     
-  } else if (multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO) {
-    
-    ChainState::ChannelBitmask pressed = 0;
+  }
+  
+  // Forward presses information to chain state
+  ChainState::ChannelBitmask pressed = 0;
+  //if (multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO) {
     for (int i = 0; i < kNumSwitches; ++i) {
       if (switches_.pressed(i)) {
         pressed |= 1 << i;
       }
     }
-    chain_state_->set_local_switch_pressed(pressed);
-    
-  }
+  //}
+  chain_state_->set_local_switch_pressed(pressed);
   
   // Detect very long presses for multi-mode toggle (using a negative counter)
   for (uint8_t i = 0; i < kNumSwitches; ++i) {
@@ -155,6 +153,10 @@ void Ui::MultiModeToggle(const uint8_t i) {
   // Save the toggle value into permanent settings (if necessary)
   State* state = settings_->mutable_state();
   if (state->multimode != (uint8_t) multimodes_[i]) {
+    for (int j = 0; j < kNumSwitches; ++j) {
+      press_time_[j] = -1; // Don't consider Ouroboros button presses while changing mode
+    }
+    chain_state_->SuspendSwitches(); // Don't consider chain button presses while changing mode
     state->multimode = (uint8_t) multimodes_[i];
     settings_->SaveState();
   }
@@ -235,6 +237,9 @@ void Ui::UpdateLEDs() {
       };
       for (size_t i = 0; i < kNumChannels; ++i) {
         uint8_t configuration = settings_->state().segment_configuration[i];
+        if (multimode == MULTI_MODE_OUROBOROS || multimode == MULTI_MODE_OUROBOROS_ALTERNATE) {
+          configuration = configuration >> 4; // slide to ouroboros bits
+        }
         uint8_t type = configuration & 0x3;
         int brightness = fade_patterns[
           (multimode == MULTI_MODE_OUROBOROS || multimode == MULTI_MODE_OUROBOROS_ALTERNATE)

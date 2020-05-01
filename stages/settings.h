@@ -64,6 +64,11 @@ struct PersistentData {
   enum { tag = 0x494C4143 };  // CALI
 };
 
+// Segment configuration is 8 bits:
+//  - b00000011 (0x03) -> segment type bits
+//  - b00000100 (0x04) -> segment loop bit
+//  - b01110000 (0x70) -> ouroboros waveshape (8 values)
+
 struct State {
   uint8_t segment_configuration[kNumChannels];
   uint8_t color_blind;

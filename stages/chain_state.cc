@@ -32,6 +32,7 @@
 
 #include "stages/drivers/serial_link.h"
 #include "stages/settings.h"
+#include "stages/ui.h"
 
 namespace stages {
   
@@ -323,7 +324,7 @@ inline void ChainState::UpdateLocalState(
     bool input_patched = unpatch_counter_[i] < kUnpatchedInputDelay;
     dirty_[local_channel_index(i)] = local_channel(i)->UpdateFlags(
         index_,
-        settings.state().segment_configuration[i],
+        settings.state().segment_configuration[i] & 0b00000111,
         input_patched);
     if (input_patched) {
       input_patched_bitmask |= 1 << i;
@@ -470,16 +471,17 @@ void ChainState::PollSwitches() {
               request_ = MakeLoopChangeRequest(first_pressed, switch_index);
               switch_press_time_[first_pressed] = -1;
               switch_press_time_[switch_index] = -1;
-            } else if (switch_press_time_[switch_index] > kLongPressDuration) {
-              // Long press on a single button.
-              request_ = MakeLoopChangeRequest(switch_index, switch_index);
-              switch_press_time_[switch_index] = -1;
             } else {
               first_pressed = switch_index;
             }
           }
         } else {
-          if (switch_press_time_[switch_index] > 5) {
+          if (switch_press_time_[switch_index] > kLongPressDuration) { // Long-press
+            if (switch_press_time_[switch_index] < kLongPressDurationForMultiModeToggle) { // But not long enough for multi-mode toggle
+              request_ = MakeLoopChangeRequest(switch_index, switch_index);
+              switch_press_time_[switch_index] = -1;
+            }
+          } else if (switch_press_time_[switch_index] > 5) {
             // A button has been released after having been held for a
             // sufficiently long time (5ms), but not for long enough to be
             // detected as a long press.
@@ -492,6 +494,12 @@ void ChainState::PollSwitches() {
         ++switch_index;
       }
     }
+  }
+}
+
+void ChainState::SuspendSwitches() {
+  for (size_t j = 0; j < kMaxNumChannels; ++j) {
+    switch_press_time_[j] = -1;
   }
 }
 
@@ -510,7 +518,8 @@ void ChainState::HandleRequest(Settings* settings) {
 
     if (request_.request == REQUEST_SET_SEGMENT_TYPE) {
       if (channel == request_.argument[0]) {
-        s->segment_configuration[i] = ((type_bits + 1) % 3) | loop_bit;
+        s->segment_configuration[i] &= ~0b00000011; // Reset type bits
+        s->segment_configuration[i] |= ((type_bits + 1) % 3); // Cycle through 0,1,2 and set type bits
         dirty |= true;
       }
     } else if (request_.request == REQUEST_SET_LOOP) {
@@ -525,7 +534,8 @@ void ChainState::HandleRequest(Settings* settings) {
           new_loop_bit = 0x4;
         }
       }
-      s->segment_configuration[i] = type_bits | new_loop_bit;
+      s->segment_configuration[i] &= ~0b00000100; // Reset loop bits
+      s->segment_configuration[i] |= new_loop_bit; // Set new loop bit
       dirty |= new_loop_bit != loop_bit;
     }
   }

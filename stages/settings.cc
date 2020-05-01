@@ -73,10 +73,6 @@ bool Settings::Init() {
       FIX_OUTLIER(c->dac_scale, -32263.0f);
       FIX_OUTLIER(c->adc_scale, -1.0f);
 
-      uint8_t type_bits = state_.segment_configuration[i] & 0x3;
-      uint8_t loop_bit = state_.segment_configuration[i] & 0x4;
-      CONSTRAIN(type_bits, 0, 3);
-      state_.segment_configuration[i] = type_bits | loop_bit;
     }
   }
 

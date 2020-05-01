@@ -38,6 +38,8 @@
 
 #include "stages/settings.h"
 
+const int32_t kLongPressDurationForMultiModeToggle = 5000;
+
 namespace stages {
 
 enum UiMode {

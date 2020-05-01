@@ -56,6 +56,7 @@ class ChainState {
       Settings* settings,
       SegmentGenerator* segment_generator,
       SegmentGenerator::Output* out);
+  void SuspendSwitches();
   
   // Index of the module in the chain, and size of the chain.
   inline size_t index() const { return index_; }
