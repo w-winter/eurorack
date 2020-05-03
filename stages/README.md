@@ -23,16 +23,21 @@ Usage
 
 Hold one of the six buttons for 5 seconds to change mode. This setting is persisted when the module reboots. From left to right:
 
-1. Segment generator
-2. Segment generator
+1. [Segment generator](#segment-generator)
+2. [Segment generator](#segment-generator)
 3. Segment generator with [slower free-running LFOs](#slower-free-running-lfos)
 4. [Six DAHDSR envelope generators](#six-dahdsr-envelope-generators)
 5. [Harmonic oscillator](#harmonic-oscillator), aka Ouroboros mode
 6. Harmonic oscillator with [alternate controls](#harmonic-oscillator-with-alternate-controls)
 
-For **segment generator** mode, refer to the official [Stages manual][4]. For the other modes, see below.
+
+### Segment generator
+
+This is the standard mode of the module, refer to the official [Stages manual][4]. This firmware is built on top of official [Stages 1.1][10] and [latest changes][11], therefore it includes **color-blind mode**, **S&H gate delay** and **LFO phase preservation**.
 
 [4]: https://mutable-instruments.net/modules/stages/manual/
+[10]: https://mutable-instruments.net/modules/stages/firmware/
+[11]: https://github.com/pichenettes/eurorack/commits/master
 
 
 ### Slower free-running LFOs
@@ -97,6 +102,18 @@ Same as harmonic oscillator, but controls for each partial (columns 2 to 6) are 
 - Slider and CV input sets the **harmonic ratio** in relation to the root pitch
 
 This way is possibile to modulate (and therefore sequence) the harmonics with external CV.
+
+
+Changelog
+---------
+
+- [**v3**][103]: Fixed multi-mode switch to avoid unwanted segment loop toggle, independent permanent storage for segments configuration and harmonic oscillator waveform selection.
+- [**v2**][102]: Alternate controls mode for harmonic oscillator.
+- [**v1**][101]: Initial release, merging slower LFOs and Ouroboros toggle into a single firmware, together with a new 6xDAHDSR mode.
+
+[101]: https://github.com/joeSeggiola/eurorack/releases/tag/stages-multi-v1
+[102]: https://github.com/joeSeggiola/eurorack/releases/tag/stages-multi-v2
+[103]: https://github.com/joeSeggiola/eurorack/releases/tag/stages-multi-v3
 
 
 Feedback
