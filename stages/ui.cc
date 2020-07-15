@@ -43,7 +43,7 @@ namespace stages {
 /* static */
 const MultiMode Ui::multimodes_[6] = {
   MULTI_MODE_STAGES, // Mode enabled by long pressing the left-most button
-  MULTI_MODE_STAGES,
+  MULTI_MODE_STAGES_SLIDER_RANGE,
   MULTI_MODE_STAGES_SLOW_LFO,
   MULTI_MODE_SIX_EG,
   MULTI_MODE_OUROBOROS,
@@ -215,18 +215,19 @@ void Ui::UpdateLEDs() {
   } else {
     
     if (displaying_multimode_toggle_ > 0) {
-      
+
       // Displaying the multi-mode toggle visual feedback
       --displaying_multimode_toggle_;
       for (size_t i = 0; i < kNumChannels; ++i) {
         leds_.set(LED_GROUP_UI + i, displaying_multimode_toggle_pressed_ == i ? LED_COLOR_YELLOW : LED_COLOR_OFF);
       }
-      
+
     } else if (
-      multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO || 
+      multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO ||
+      multimode == MULTI_MODE_STAGES_SLIDER_RANGE ||
       multimode == MULTI_MODE_OUROBOROS || multimode == MULTI_MODE_OUROBOROS_ALTERNATE
     ) {
-      
+
       // LEDs update for original Stage modes (Stages, slow LFO variant and Ouroboros)
       uint8_t pwm = system_clock.milliseconds() & 0xf;
       uint8_t fade_patterns[4] = {
