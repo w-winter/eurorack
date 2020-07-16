@@ -85,17 +85,23 @@ void CvReader::Read(IOBuffer::Block* block) {
             // Free running LFO; input is frequency
             // Base freq is 2.0439497; semitones are relative to that
             // -120 semitones is thus about 8 minutes and 120 semitones is about 2093hz=C7
-            const float slider_max = 96.0f / 96.0f + 0.5; // C5
+            // Original goes from -48 (~6 seconds) to 48 (C1)
+            const float slider_max = 72.0f / 96.0f + 0.5; // C3
             const float slider_min = -120.0f / 96.0f + 0.5; // 8 minutes
             slider = (slider_max - slider_min) * slider + slider_min;
           }
           // Leave tap LFO the same
         } else {
           // ramp; input is time; negative values don't make sense
-          slider = 2.0f * slider;
+          // 1.0f -> 32sec
+          // 2.0f -> ~19min; these seemed waaay to sensitive in practice
+          // 1.25 -> ~58sec, which is about what a Maths linear stage is
+          slider = 1.25f * slider;
         }
+      } else {
+        // Expand to make ramp and hold bipolar
+        slider = 2.0f * slider - 1.0f;
       }
-      // expand range for hold or step?
     }
     float combined_value = value + slider;
     CONSTRAIN(combined_value, -1.0f, 1.999995f);
