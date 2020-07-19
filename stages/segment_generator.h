@@ -60,6 +60,7 @@ enum Type {
   TYPE_RAMP = 0,
   TYPE_STEP = 1,
   TYPE_HOLD = 2,
+  TYPE_TURING = 3,
 };
 
 enum FreqRange {
@@ -81,6 +82,7 @@ struct Parameters {
   // RAMP          | Time  | Shape (or level if followed by RAMP)
   // HOLD          | Level | Time
   // STEP          | Level | Shape (portamento)
+  // TURING        | Prob  | Sequence length
   float primary;
   float secondary;
 };
@@ -114,6 +116,9 @@ class SegmentGenerator {
     bool bipolar;
     bool retrig;
     segment::FreqRange range;
+
+    int16_t shift_register;
+    float register_value;
   };
 
   void Init(Settings* settings);
@@ -174,6 +179,7 @@ class SegmentGenerator {
   DECLARE_PROCESS_FN(FreeRunningLFO);
   DECLARE_PROCESS_FN(Delay);
   DECLARE_PROCESS_FN(Portamento);
+  DECLARE_PROCESS_FN(Turing);
   DECLARE_PROCESS_FN(Zero);
   DECLARE_PROCESS_FN(ClockedSampleAndHold);
   DECLARE_PROCESS_FN(Slave);
@@ -215,7 +221,7 @@ class SegmentGenerator {
   DelayLine16Bits<kMaxDelay> delay_line_;
   stmlib::DelayLine<stmlib::GateFlags, 128> gate_delay_;
 
-  static ProcessFn process_fn_table_[12];
+  static ProcessFn process_fn_table_[16];
 
   DISALLOW_COPY_AND_ASSIGN(SegmentGenerator);
 };

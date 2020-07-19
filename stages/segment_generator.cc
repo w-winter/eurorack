@@ -38,6 +38,7 @@
 #include <algorithm>
 
 #include "stages/resources.h"
+#include "stmlib/utils/gate_flags.h"
 
 namespace stages {
 
@@ -471,6 +472,20 @@ void SegmentGenerator::ProcessPortamento(
   }
 }
 
+void SegmentGenerator::ProcessTuring(
+    const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
+  const size_t steps = size_t(16 * parameters_[0].secondary);
+  float prob = parameters_[0].primary;
+  prob = prob > 1.0f ? 1.0f : (prob < 0.0f ? 0.0f : prob);
+
+  while (size--) {
+    if (*gate_flags & GATE_FLAG_FALLING) {
+
+    }
+
+  }
+}
+
 void SegmentGenerator::ProcessZero(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
 
@@ -556,7 +571,8 @@ void SegmentGenerator::Configure(
 
   for (int i = 0; i <= last_segment; ++i) {
     has_step_segments = has_step_segments || \
-        segment_configuration[i].type == TYPE_STEP;
+        segment_configuration[i].type == TYPE_STEP || \
+        segment_configuration[i].type == TYPE_TURING;
     if (segment_configuration[i].loop) {
       if (loop_start == -1) {
         loop_start = i;
@@ -574,7 +590,7 @@ void SegmentGenerator::Configure(
   bool has_step_segments_inside_loop = false;
   if (loop_start != -1) {
     for (int i = loop_start; i <= loop_end; ++i) {
-      if (segment_configuration[i].type == TYPE_STEP) {
+      if (segment_configuration[i].type == TYPE_STEP || segment_configuration[i].type == TYPE_TURING) {
         has_step_segments_inside_loop = true;
         break;
       }
@@ -595,6 +611,8 @@ void SegmentGenerator::Configure(
 
       if (i == last_segment) {
         s->end = &zero_;
+      } else if (segment_configuration[i + 1].type == TYPE_TURING) {
+        s->end = &segments_[i+1].register_value;
       } else if (segment_configuration[i + 1].type != TYPE_RAMP) {
         s->end = &parameters_[i + 1].primary;
       } else if (i == first_ramp_segment) {
@@ -624,6 +642,10 @@ void SegmentGenerator::Configure(
         // Sample if there is a loop of length 1 on this segment. Otherwise
         // track.
         s->phase = i == loop_start && i == loop_end ? &zero_ : &one_;
+      } else if (segment_configuration[i].type == TYPE_TURING) {
+        s->portamento = &zero_;
+        s->time = NULL;
+        s->phase = &zero_;
       } else {
         s->portamento = &zero_;
         // Hold if there's a loop of length 1 of this segment. Otherwise, use
@@ -648,7 +670,7 @@ void SegmentGenerator::Configure(
         // Find the next STEP segment.
         bool follow_loop = loop_end != -1;
         int next_step = i;
-        while (segment_configuration[next_step].type != TYPE_STEP) {
+        while (segment_configuration[next_step].type != TYPE_STEP && segment_configuration[next_step].type != TYPE_TURING) {
           ++next_step;
           if (follow_loop && next_step == loop_end + 1) {
             next_step = loop_start;
@@ -680,7 +702,7 @@ void SegmentGenerator::Configure(
 }
 
 /* static */
-SegmentGenerator::ProcessFn SegmentGenerator::process_fn_table_[12] = {
+SegmentGenerator::ProcessFn SegmentGenerator::process_fn_table_[16] = {
   // RAMP
   &SegmentGenerator::ProcessZero,
   &SegmentGenerator::ProcessFreeRunningLFO,
