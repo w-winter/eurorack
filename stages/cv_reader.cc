@@ -77,7 +77,7 @@ void CvReader::Read(IOBuffer::Block* block) {
 
 
     float slider = lp_slider_[i];
-    if (settings_->state().multimode == MULTI_MODE_STAGES_SLIDER_RANGE) {
+    if (settings_->state().multimode == MULTI_MODE_STAGES_SLOW_LFO) {
       const ChainState::ChannelState *state = chain_state_->local_channel(i);
       if (state->configuration().type == segment::TYPE_RAMP) {
         if (chain_state_->loop_status(i) == ChainState::LOOP_STATUS_SELF) {
@@ -85,8 +85,9 @@ void CvReader::Read(IOBuffer::Block* block) {
             // Free running LFO; input is frequency
             // Base freq is 2.0439497; semitones are relative to that
             // -120 semitones is thus about 8 minutes and 120 semitones is about 2093hz=C7
+            // -128 is lowest and 127 is highest
             // Original goes from -48 (~6 seconds) to 48 (C1)
-            const float slider_max = 72.0f / 96.0f + 0.5; // C3
+            const float slider_max = 48.0f / 96.0f + 0.5; // C1
             const float slider_min = -120.0f / 96.0f + 0.5; // 8 minutes
             slider = (slider_max - slider_min) * slider + slider_min;
           }

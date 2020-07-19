@@ -44,7 +44,7 @@ namespace stages {
 /* static */
 const MultiMode Ui::multimodes_[6] = {
   MULTI_MODE_STAGES, // Mode enabled by long pressing the left-most button
-  MULTI_MODE_STAGES_SLIDER_RANGE,
+  MULTI_MODE_STAGES,
   MULTI_MODE_STAGES_SLOW_LFO,
   MULTI_MODE_SIX_EG,
   MULTI_MODE_OUROBOROS,
@@ -225,7 +225,6 @@ void Ui::UpdateLEDs() {
 
     } else if (
       multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO ||
-      multimode == MULTI_MODE_STAGES_SLIDER_RANGE ||
       multimode == MULTI_MODE_OUROBOROS || multimode == MULTI_MODE_OUROBOROS_ALTERNATE
     ) {
 
