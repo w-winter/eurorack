@@ -98,10 +98,11 @@ void CvReader::Read(IOBuffer::Block* block) {
           // 1.25 -> ~58sec, which is about what a Maths linear stage is
           slider = 1.25f * slider;
         }
-      } else {
-        // Expand to make ramp and hold bipolar
-        slider = 2.0f * slider - 1.0f;
       }
+    }
+    int8_t seg_config = settings_->state().segment_configuration[i];
+    if (is_bipolar(seg_config) && (seg_config & 0x03) != 0) {
+      slider = 2.0f * slider - 1.0f;
     }
     float combined_value = value + slider;
     CONSTRAIN(combined_value, -1.0f, 1.999995f);

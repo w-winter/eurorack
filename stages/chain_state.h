@@ -29,6 +29,7 @@
 #ifndef STAGES_CHAIN_STATE_H_
 #define STAGES_CHAIN_STATE_H_
 
+#include "stages/settings.h"
 #include "stmlib/stmlib.h"
 
 #include "stages/io_buffer.h"
@@ -96,9 +97,10 @@ class ChainState {
     // 7 6 5 4 3 2 1 0
     // 8 4 2 1 8 4 2 1
     //
-    // S S S S I L T T
+    // S S S B I L T T
     //
-    // SSSS: index of the module sending this packet.
+    // SSS: index of the module sending this packet.
+    // B: bipolar enabled?
     // I: gate/trigger input patched?
     // L: loop enabled?
     // TT: segment type
@@ -114,20 +116,23 @@ class ChainState {
       segment::Configuration c;
       c.loop = flags & 0x04;
       c.type = segment::Type(flags & 0x03);
+      c.bipolar = flags & 0b00010000;
       return c;
     }
 
     inline size_t index() const {
-      return size_t(flags) >> 4;
+      return size_t(flags) >> 5;
     }
 
     inline bool UpdateFlags(
         uint8_t index,
         uint8_t configuration,
+        bool bipolar,
         bool input_patched) {
-      uint8_t new_flags = index << 4;
+      uint8_t new_flags = index << 5;
       new_flags |= configuration;
       new_flags |= input_patched ? 0x08 : 0;
+      new_flags |= bipolar ? 0b00010000: 0;
       bool dirty = new_flags != flags;
       flags = new_flags;
       return dirty;

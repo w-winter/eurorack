@@ -69,6 +69,11 @@ struct PersistentData {
 //  - b00000011 (0x03) -> segment type bits
 //  - b00000100 (0x04) -> segment loop bit
 //  - b01110000 (0x70) -> ouroboros waveshape (8 values)
+//
+// New:
+//  - b00001000 (0x08) -> bipolar bit
+
+#define is_bipolar(seg_config) seg_config & 0x08
 
 struct State {
   uint8_t segment_configuration[kNumChannels];

@@ -8,10 +8,10 @@
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -19,7 +19,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-// 
+//
 // See http://creativecommons.org/licenses/MIT/ for more information.
 //
 // -----------------------------------------------------------------------------
@@ -31,6 +31,7 @@
 
 #include <algorithm>
 
+#include "stages/settings.h"
 #include "stmlib/system/system_clock.h"
 
 using namespace std;
@@ -61,41 +62,41 @@ const LedColor Ui::palette_[4] = {
 void Ui::Init(Settings* settings, ChainState* chain_state) {
   leds_.Init();
   switches_.Init();
-  
+
   system_clock.Init();
   fill(&press_time_[0], &press_time_[kNumSwitches], 0);
   fill(&press_time_multimode_toggle_[0], &press_time_multimode_toggle_[kNumSwitches], 0);
-  
+
   settings_ = settings;
   mode_ = UI_MODE_NORMAL;
   chain_state_ = chain_state;
-  
+
   displaying_multimode_toggle_ = 0;
   displaying_multimode_toggle_pressed_ = 0;
-  
+
   if (switches_.pressed_immediate(0)) {
     State* state = settings_->mutable_state();
     if (state->color_blind == 1) {
-      state->color_blind = 0; 
+      state->color_blind = 0;
     } else {
-      state->color_blind = 1; 
+      state->color_blind = 1;
     }
     settings_->SaveState();
   }
-  
+
   fill(&slider_led_counter_[0], &slider_led_counter_[kNumLEDs], 0);
 }
 
 void Ui::Poll() {
   system_clock.Tick();
   UpdateLEDs();
-  
+
   switches_.Debounce();
-  
+
   MultiMode multimode = (MultiMode) settings_->state().multimode;
-  
+
   if (multimode == MULTI_MODE_OUROBOROS || multimode == MULTI_MODE_OUROBOROS_ALTERNATE) {
-    
+
     State* s = settings_->mutable_state();
     for (int i = 0; i < kNumSwitches; ++i) {
       if (switches_.pressed(i)) {
@@ -117,9 +118,9 @@ void Ui::Poll() {
         press_time_[i] = 0;
       }
     }
-    
+
   }
-  
+
   // Forward presses information to chain state
   ChainState::ChannelBitmask pressed = 0;
   //if (multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO) {
@@ -130,7 +131,7 @@ void Ui::Poll() {
     }
   //}
   chain_state_->set_local_switch_pressed(pressed);
-  
+
   // Detect very long presses for multi-mode toggle (using a negative counter)
   for (uint8_t i = 0; i < kNumSwitches; ++i) {
     if (switches_.pressed(i)) {
@@ -145,11 +146,11 @@ void Ui::Poll() {
       press_time_multimode_toggle_[i] = 0;
     }
   }
-  
+
 }
 
 void Ui::MultiModeToggle(const uint8_t i) {
-  
+
   // Save the toggle value into permanent settings (if necessary)
   State* state = settings_->mutable_state();
   if (state->multimode != (uint8_t) multimodes_[i]) {
@@ -160,11 +161,11 @@ void Ui::MultiModeToggle(const uint8_t i) {
     state->multimode = (uint8_t) multimodes_[i];
     settings_->SaveState();
   }
-  
+
   // Display visual feedback
   displaying_multimode_toggle_pressed_ = i;
   displaying_multimode_toggle_ = 1000;
-  
+
 }
 
 inline uint8_t Ui::FadePattern(uint8_t shift, uint8_t phase) const {
@@ -180,7 +181,7 @@ void Ui::UpdateLEDs() {
   MultiMode multimode = (MultiMode) settings_->state().multimode;
 
   if (mode_ == UI_MODE_FACTORY_TEST) {
-    
+
     size_t counter = (system_clock.milliseconds() >> 8) % 3;
     for (size_t i = 0; i < kNumChannels; ++i) {
       if (slider_led_counter_[i] == 0) {
@@ -195,9 +196,9 @@ void Ui::UpdateLEDs() {
         leds_.set(LED_GROUP_SLIDER + i, LED_COLOR_GREEN);
       }
     }
-    
+
   } else if (chain_state_->discovering_neighbors()) {
-    
+
     size_t counter = system_clock.milliseconds() >> 5;
     size_t n = chain_state_->size() * kNumChannels;
     counter = counter % (2 * n - 2);
@@ -211,9 +212,9 @@ void Ui::UpdateLEDs() {
         leds_.set(LED_GROUP_SLIDER + counter, LED_COLOR_GREEN);
       }
     }
-    
+
   } else {
-    
+
     if (displaying_multimode_toggle_ > 0) {
 
       // Displaying the multi-mode toggle visual feedback
@@ -261,6 +262,9 @@ void Ui::UpdateLEDs() {
             brightness = brightness >= 0xc ? 0x1 : 0;
           }
         }
+        if (is_bipolar(configuration)) {
+          brightness >>= 3;
+        }
         leds_.set(
             LED_GROUP_UI + i,
             (brightness >= pwm && brightness != 0) ? color : LED_COLOR_OFF);
@@ -268,36 +272,36 @@ void Ui::UpdateLEDs() {
             LED_GROUP_SLIDER + i,
             slider_led_counter_[i] ? LED_COLOR_GREEN : LED_COLOR_OFF);
       }
-      
+
     } else if (multimode == MULTI_MODE_SIX_EG) {
-      
+
       // LEDs update for 6EG mode
       for (size_t i = 0; i < kNumChannels; ++i) {
         leds_.set(LED_GROUP_UI + i, led_color_[i]);
         leds_.set(LED_GROUP_SLIDER + i, slider_led_counter_[i] ? LED_COLOR_GREEN : LED_COLOR_OFF);
       }
-      
+
     } else {
-      
+
       // Invalid mode, turn all off
       for (size_t i = 0; i < kNumChannels; ++i) {
         leds_.set(LED_GROUP_UI + i, LED_COLOR_OFF);
         leds_.set(LED_GROUP_SLIDER + i, LED_COLOR_OFF);
       }
-      
+
     }
-    
+
     // For any multi-mode, update slider LEDs counters
     for (size_t i = 0; i < kNumChannels; ++i) {
       if (slider_led_counter_[i]) {
         --slider_led_counter_[i];
       }
     }
-    
+
   }
-  
+
   leds_.Write();
-  
+
 }
 
 }  // namespace stages

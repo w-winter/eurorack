@@ -8,10 +8,10 @@
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -19,7 +19,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-// 
+//
 // See http://creativecommons.org/licenses/MIT/ for more information.
 //
 // -----------------------------------------------------------------------------
@@ -35,7 +35,7 @@
 #include "stages/ui.h"
 
 namespace stages {
-  
+
 using namespace std;
 
 const uint32_t kLeftKey = stmlib::FourCC<'d', 'i', 's', 'c'>::value;
@@ -48,12 +48,12 @@ const int32_t kLongPressDuration = 500;
 void ChainState::Init(SerialLink* left, SerialLink* right) {
   index_ = 0;
   size_ = 1;
-  
+
   left_ = left;
   right_ = right;
-  
+
   STATIC_ASSERT(sizeof(Packet) == kPacketSize, BAD_PACKET_SIZE);
-  
+
   left_->Init(
       SERIAL_LINK_DIRECTION_LEFT,
       115200 * 8,
@@ -64,17 +64,17 @@ void ChainState::Init(SerialLink* left, SerialLink* right) {
       115200 * 8,
       right_rx_packet_[0].bytes,
       kPacketSize);
-  
-  ChannelState c = { .flags = 0xf0, .pot = 128, .cv_slider = 32768 };
+
+  ChannelState c = { .flags = 0b11100000, .pot = 128, .cv_slider = 32768 };
 
   fill(&channel_state_[0], &channel_state_[kMaxNumChannels], c);
   fill(&unpatch_counter_[0], &unpatch_counter_[kNumChannels], 0);
   fill(&loop_status_[0], &loop_status_[kNumChannels], LOOP_STATUS_NONE);
   fill(&switch_pressed_[0], &switch_pressed_[kMaxChainSize], 0);
   fill(&switch_press_time_[0], &switch_press_time_[kMaxNumChannels], 0);
-  
+
   request_.request = REQUEST_NONE;
-  
+
   discovering_neighbors_ = true;
   counter_ = 0;
   num_internal_bindings_ = 0;
@@ -89,23 +89,23 @@ void ChainState::DiscoverNeighbors() {
     left_tx_packet_.discovery.key = kLeftKey;
     left_tx_packet_.discovery.counter = size_;
     left_->Transmit(left_tx_packet_);
-    
+
     right_tx_packet_.discovery.key = kRightKey;
     right_tx_packet_.discovery.counter = index_;
     right_->Transmit(right_tx_packet_);
   }
-  
+
   const DiscoveryPacket* l = left_->available_rx_buffer<DiscoveryPacket>();
   if (l && l->key == kRightKey) {
     index_ = size_t(l->counter) + 1;
     size_ = std::max(size_, index_ + 1);
   }
-  
+
   const DiscoveryPacket* r = right_->available_rx_buffer<DiscoveryPacket>();
   if (r && r->key == kLeftKey) {
     size_ = std::max(size_, size_t(r->counter));
   }
-  
+
   bool ouroboros_ = index_ >= kMaxChainSize || size_ > kMaxChainSize;
 
   // The discovery phase lasts 2000ms.
@@ -121,13 +121,13 @@ void ChainState::TransmitRight() {
   if (index_ == size_ - 1) {
     return;
   }
-  
+
   LeftToRightPacket* p = &right_tx_packet_.to_right;
   p->phase = tx_last_sample_.phase;
   p->segment = tx_last_sample_.segment;
   p->last_patched_channel = tx_last_patched_channel_;
   p->last_loop = tx_last_loop_;
-  
+
   copy(&input_patched_[0], &input_patched_[index_ + 1], &p->input_patched[0]);
   copy(&switch_pressed_[0], &switch_pressed_[index_ + 1],
        &p->switch_pressed[0]);
@@ -138,7 +138,7 @@ void ChainState::ReceiveRight() {
   if (index_ == size_ - 1) {
     return;
   }
-  
+
   const RightToLeftPacket* p = right_->available_rx_buffer<RightToLeftPacket>();
   if (p) {
     size_t rx_index = p->channel[0].index();
@@ -167,7 +167,7 @@ void ChainState::TransmitLeft() {
   if (index_ == 0) {
     return;
   }
-  
+
   if (request_.request != REQUEST_NONE) {
     // Forward the request to the left.
     left_tx_packet_.request = request_;
@@ -178,9 +178,9 @@ void ChainState::TransmitLeft() {
     // For example:
     //
     // 0----- 1----- 2----- 3----- 4-----
-    // 
+    //
     // ----X- ------ ---X-- ------ ---X--
-    //                            
+    //
     // last = 2
     //        last = 2
     //               last = 4
@@ -214,7 +214,7 @@ void ChainState::ReceiveLeft() {
     rx_last_loop_.end = -1;
     return;
   }
-  
+
   const LeftToRightPacket* p = left_->available_rx_buffer<LeftToRightPacket>();
   if (p) {
     rx_last_patched_channel_ = p->last_patched_channel;
@@ -235,12 +235,12 @@ void ChainState::Configure(SegmentGenerator* segment_generator) {
 
   num_internal_bindings_ = 0;
   num_bindings_ = 0;
-  
+
   segment::Configuration configuration[kMaxNumChannels];
-  
+
   for (size_t i = 0; i < kNumChannels; ++i) {
     size_t channel = local_channel_index(i);
-    
+
     if (!local_channel(i)->input_patched()) {
       if (channel > last_patched_channel) {
         // Create a slave channel - we are just extending a chain of segments.
@@ -260,12 +260,12 @@ void ChainState::Configure(SegmentGenerator* segment_generator) {
       }
     } else {
       last_patched_channel = channel;
-      
+
       // Create a normal channel, trying to extend it as far as possible.
       int num_segments = 0;
       bool add_more_segments = true;
       bool dirty = false;
-      
+
       last_loop.start = -1;
       last_loop.end = -1;
       while (add_more_segments) {
@@ -273,12 +273,12 @@ void ChainState::Configure(SegmentGenerator* segment_generator) {
         segment::Configuration c = channel_state_[channel].configuration();
         configuration[num_segments] = c;
         dirty |= dirty_[channel];
-        
+
         if (c.loop) {
           if (last_loop.start == -1) last_loop.start = num_segments;
           last_loop.end = num_segments;
         }
-        
+
         // Add a binding in the binding array.
         binding_[num_bindings_].generator = i;
         binding_[num_bindings_].destination = num_segments;
@@ -293,7 +293,7 @@ void ChainState::Configure(SegmentGenerator* segment_generator) {
         ++num_bindings_;
         ++channel;
         ++num_segments;
-        
+
         add_more_segments = channel < last_channel && \
              !channel_state_[channel].input_patched();
       }
@@ -312,7 +312,7 @@ inline void ChainState::UpdateLocalState(
     const Settings& settings,
     const SegmentGenerator::Output& last_out) {
   tx_last_sample_ = last_out;
-  
+
   ChannelBitmask input_patched_bitmask = 0;
   for (size_t i = 0; i < kNumChannels; ++i) {
     if (block.input_patched[i]) {
@@ -320,11 +320,12 @@ inline void ChainState::UpdateLocalState(
     } else if (unpatch_counter_[i] < kUnpatchedInputDelay) {
       ++unpatch_counter_[i];
     }
-    
+
     bool input_patched = unpatch_counter_[i] < kUnpatchedInputDelay;
     dirty_[local_channel_index(i)] = local_channel(i)->UpdateFlags(
         index_,
         settings.state().segment_configuration[i] & 0b00000111,
+        is_bipolar(settings.state().segment_configuration[i]),
         input_patched);
     if (input_patched) {
       input_patched_bitmask |= 1 << i;
@@ -377,8 +378,8 @@ ChainState::RequestPacket ChainState::MakeLoopChangeRequest(
   //
   // LOOP     ----S- ------ --E--- ------
   // PATCHED  -x---- ------ ----x- ------
-  //           ^  ^           ^ ^        
-  //           |  |           | |        
+  //           ^  ^           ^ ^
+  //           |  |           | |
   //           |  |           | group_end
   //           |  |           loop_end
   //           |  loop_start
@@ -404,7 +405,7 @@ ChainState::RequestPacket ChainState::MakeLoopChangeRequest(
       ++channel_index;
     }
   }
-  
+
   // There shouldn't be a loop spanning multiple channels among the first
   // group of unpatched channels.
   if (group_start == 0 && !(input_patched_[0] & 1)) {
@@ -416,7 +417,7 @@ ChainState::RequestPacket ChainState::MakeLoopChangeRequest(
       group_start = group_end = loop_start = loop_end;
     }
   }
-  
+
   // The only situation where a loop can end on a patched channel is when
   // we have a single-channel group.
   if (group_end == loop_end && group_start != group_end) {
@@ -424,13 +425,13 @@ ChainState::RequestPacket ChainState::MakeLoopChangeRequest(
     // LOOP     ---S--
     //             E
     // PATCHED  ---xx-
-    
+
     // Incorrect:
     // LOOP     ---S-E
     // PATCHED  ---x-x
     inconsistent_loop = true;
   }
-  
+
   RequestPacket result;
   if (inconsistent_loop) {
     result.request = REQUEST_NONE;
@@ -518,8 +519,12 @@ void ChainState::HandleRequest(Settings* settings) {
 
     if (request_.request == REQUEST_SET_SEGMENT_TYPE) {
       if (channel == request_.argument[0]) {
-        s->segment_configuration[i] &= ~0b00000011; // Reset type bits
-        s->segment_configuration[i] |= ((type_bits + 1) % 3); // Cycle through 0,1,2 and set type bits
+        if (is_bipolar(s->segment_configuration[i])) {
+          s->segment_configuration[i] &= ~0b00001011; // Reset type and bipolar bits
+          s->segment_configuration[i] |= ((type_bits + 1) % 3); // Cycle through 0,1,2 and set type bits
+        } else {
+          s->segment_configuration[i] |= 0b00001000; // set bipolar bit
+        }
         dirty |= true;
       }
     } else if (request_.request == REQUEST_SET_LOOP) {
@@ -539,7 +544,7 @@ void ChainState::HandleRequest(Settings* settings) {
       dirty |= new_loop_bit != loop_bit;
     }
   }
-  
+
   if (dirty) {
     settings->SaveState();
   }
@@ -554,7 +559,7 @@ void ChainState::Update(
     DiscoverNeighbors();
     return;
   }
-  
+
   switch (counter_ & 0x3) {
     case 0:
       PollSwitches();
@@ -575,10 +580,10 @@ void ChainState::Update(
       BindRemoteParameters(segment_generator);
       break;
   }
-  
+
   BindLocalParameters(block, segment_generator);
   fill(&out[0], &out[kBlockSize], rx_last_sample_);
-  
+
   ++counter_;
 }
 
