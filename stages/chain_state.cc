@@ -514,6 +514,8 @@ void ChainState::HandleRequest(Settings* settings) {
     return;
   }
 
+  const uint8_t num_types = settings->state().multimode == MULTI_MODE_STAGES_ADVANCED ? 4 : 3;
+
   State* s = settings->mutable_state();
   bool dirty = false;
   for (size_t i = 0; i < kNumChannels; ++i) {
@@ -526,7 +528,7 @@ void ChainState::HandleRequest(Settings* settings) {
       if (channel == request_.argument[0]) {
         s->segment_configuration[i] &= ~0xff00; // Reset LFO range
         s->segment_configuration[i] &= ~0b00001011; // Reset type and bipolar bits
-        s->segment_configuration[i] |= ((type_bits + 1) % 3); // Cycle through 0,1,2 and set type bits
+        s->segment_configuration[i] |= ((type_bits + 1) % num_types); // Cycle through segment types
         dirty |= true;
       }
     } else if (request_.request == REQUEST_SET_LOOP) {

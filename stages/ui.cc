@@ -31,7 +31,7 @@
 
 #include <algorithm>
 
-#include "stages/cv_reader.h"
+#include "stages/drivers/leds.h"
 #include "stages/settings.h"
 #include "stmlib/system/system_clock.h"
 
@@ -45,7 +45,7 @@ namespace stages {
 /* static */
 const MultiMode Ui::multimodes_[6] = {
   MULTI_MODE_STAGES, // Mode enabled by long pressing the left-most button
-  MULTI_MODE_STAGES,
+  MULTI_MODE_STAGES_ADVANCED,
   MULTI_MODE_STAGES_SLOW_LFO,
   MULTI_MODE_SIX_EG,
   MULTI_MODE_OUROBOROS,
@@ -57,7 +57,7 @@ const LedColor Ui::palette_[4] = {
   LED_COLOR_GREEN,
   LED_COLOR_YELLOW,
   LED_COLOR_RED,
-  LED_COLOR_OFF
+  LED_COLOR_OFF,
 };
 
 void Ui::Init(Settings* settings, ChainState* chain_state, CvReader* cv_reader) {
@@ -138,7 +138,7 @@ void Ui::Poll() {
   chain_state_->set_local_switch_pressed(pressed);
 
   uint8_t changing_prop = 0;
-  if (multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO) {
+  if (multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO || multimode == MULTI_MODE_STAGES_ADVANCED) {
     bool dirty = false;
     uint16_t* seg_config = settings_->mutable_state()->segment_configuration;
     for (uint8_t i = 0; i < kNumChannels; ++i) {
@@ -290,11 +290,11 @@ void Ui::UpdateLEDs() {
       }
 
     } else if (
-      multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO ||
-      multimode == MULTI_MODE_OUROBOROS || multimode == MULTI_MODE_OUROBOROS_ALTERNATE
+      multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO || multimode == MULTI_MODE_STAGES_ADVANCED
+      || multimode == MULTI_MODE_OUROBOROS || multimode == MULTI_MODE_OUROBOROS_ALTERNATE
     ) {
 
-      // LEDs update for original Stage modes (Stages, slow LFO variant and Ouroboros)
+      // LEDs update for original Stage modes (Stages, advanced, slow LFO variant and Ouroboros)
       uint8_t pwm = system_clock.milliseconds() & 0xf;
       uint8_t fade_patterns[4] = {
         0xf,  // NONE
@@ -322,6 +322,7 @@ void Ui::UpdateLEDs() {
             brightness = fade_patterns[configuration & 0x4 ? 3 : 0];
             break;
           case MULTI_MODE_STAGES:
+          case MULTI_MODE_STAGES_ADVANCED:
           case MULTI_MODE_STAGES_SLOW_LFO:
             brightness = chain_state_->loop_status(i) == ChainState::LOOP_STATUS_SELF && type == 0 ?
               lfo_patterns[configuration >> 8 & 0x3] : fade_patterns[chain_state_->loop_status(i)];
@@ -331,17 +332,26 @@ void Ui::UpdateLEDs() {
             break; // We're not in one of these modes
         }
         LedColor color = palette_[type];
+        if (type == 3) {
+          uint8_t proportion = (system_clock.milliseconds() >> 7) & 15;
+          proportion = proportion > 7 ? 15 - proportion : proportion;
+          if ((system_clock.milliseconds() & 7) < proportion) {
+            color = LED_COLOR_GREEN;
+          } else {
+            color = LED_COLOR_RED;
+          }
+
+        }
         if (settings_->state().color_blind == 1) {
           if (type == 0) {
-            color = LED_COLOR_GREEN;
             uint8_t modulation = FadePattern(6, 13 - (2 * i)) >> 1;
             brightness = brightness * (7 + modulation) >> 4;
           } else if (type == 1) {
-            color = LED_COLOR_YELLOW;
             brightness = brightness >= 0x8 ? 0xf : 0;
           } else if (type == 2) {
-            color = LED_COLOR_RED;
             brightness = brightness >= 0xc ? 0x1 : 0;
+          } else if (type == 3) {
+            // Not sure how to make it distinct.
           }
         }
         if (is_bipolar(configuration) && ((system_clock.milliseconds() >> 8) % 4 == 0)) {

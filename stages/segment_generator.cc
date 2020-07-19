@@ -38,6 +38,8 @@
 #include <algorithm>
 
 #include "stages/resources.h"
+#include "stmlib/utils/gate_flags.h"
+#include "stmlib/utils/random.h"
 
 namespace stages {
 
@@ -85,6 +87,8 @@ void SegmentGenerator::Init(Settings* settings) {
   s.if_complete = 0;
   s.bipolar = false;
   s.retrig = true;
+  s.shift_register = Random::GetSample();
+  s.register_value = Random::GetFloat();
   fill(&segments_[0], &segments_[kMaxNumSegments + 1], s);
 
   Parameters p;
@@ -127,6 +131,27 @@ inline float SegmentGenerator::PortamentoRateToLPCoefficient(float rate) const {
   return lut_portamento_coefficient[i];
 }
 
+static void advance_tm(
+    const size_t steps,
+    const float prob,
+    uint16_t& shift_register,
+    float& register_value,
+    bool bipolar) {
+  uint16_t sr = shift_register;
+  uint16_t copied_bit = (sr << (steps - 1)) & (1 << 15);
+  // Ensure registers lock at extremes. Threshold established through trial and error, though
+  // depend on power supply and such.
+  // Tested at audio rates. Still allows you to let trickles of changes through if you want.
+  float p = prob < 0.001f ? 0.0f : prob > 0.999f ? 1.1f : prob;
+  uint16_t mutated = copied_bit ^ ((Random::GetFloat() < p) << 15);
+  sr = (sr >> 1) | mutated;
+  shift_register = sr;
+  register_value = (float)(shift_register) / 65535.0f;
+  if (bipolar) {
+    register_value = (10.0f / 8.0f) * (register_value - 0.5f);
+  }
+}
+
 void SegmentGenerator::ProcessMultiSegment(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
   float phase = phase_;
@@ -155,7 +180,6 @@ void SegmentGenerator::ProcessMultiSegment(
     // Decide what to do next.
     int go_to_segment = -1;
     if ((*gate_flags & GATE_FLAG_RISING) && segment.retrig) {
-    //if (*gate_flags & GATE_FLAG_RISING) {
       go_to_segment = segment.if_rising;
     } else if (*gate_flags & GATE_FLAG_FALLING) {
       go_to_segment = segment.if_falling;
@@ -164,6 +188,15 @@ void SegmentGenerator::ProcessMultiSegment(
     }
 
     if (go_to_segment != -1) {
+      if (segment.advance_tm) {
+        const size_t steps = size_t(15 * parameters_[active_segment_].secondary + 1);
+        const float prob = parameters_[active_segment_].primary;
+        advance_tm(
+            steps, prob,
+            (&segments_[active_segment_])->shift_register,
+            (&segments_[active_segment_])->register_value,
+            segment.bipolar);
+      }
       phase = 0.0f;
       const Segment& destination = segments_[go_to_segment];
       start = destination.start
@@ -288,10 +321,12 @@ void SegmentGenerator::ProcessTrackAndHold(
     if (gate_delay_.Read(kSampleAndHoldDelay) & GATE_FLAG_HIGH) {
       value_ = p;
     }
+    active_segment_ = *gate_flags & GATE_FLAG_HIGH ? 0 : 1;
+
     ONE_POLE(lp_, value_, coefficient);
     out->value = lp_;
     out->phase = 0.5f;
-    out->segment = 0;
+    out->segment = active_segment_;
     ++gate_flags;
     ++out;
   }
@@ -471,6 +506,79 @@ void SegmentGenerator::ProcessPortamento(
   }
 }
 
+void SegmentGenerator::ProcessRandom(
+    const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
+  const float coefficient = PortamentoRateToLPCoefficient(
+      parameters_[0].secondary);
+  float f = 96.0f * (parameters_[0].primary - 0.5f);
+  CONSTRAIN(f, -128.0f, 127.0f);
+
+  float frequency = SemitonesToRatio(f) * 2.0439497f / kSampleRate;
+
+  active_segment_ = 0;
+  while (size--) {
+    phase_ += frequency;
+    if (phase_ >= 1.0f) {
+      phase_ -= 1.0f;
+      value_ = Random::GetFloat();
+      if (segments_[0].bipolar) {
+        value_ = 10.0f / 8.0f * (value_ - 0.5f);
+      }
+      active_segment_ = 1;
+    }
+    ONE_POLE(lp_, value_, coefficient);
+    out->value = lp_;
+    out->phase = 0.5f;
+    out->segment = active_segment_;
+    ++out;
+  }
+}
+
+void SegmentGenerator::ProcessTuring(
+    const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
+  const size_t steps = size_t(15 * parameters_[0].secondary + 1);
+  ParameterInterpolator primary(&primary_, parameters_[0].primary, size);
+
+  Segment* seg = &segments_[0];
+  while (size--) {
+    float prob = primary.Next();
+    if (*gate_flags & GATE_FLAG_RISING) {
+      advance_tm(steps, prob, seg->shift_register, seg->register_value, seg->bipolar);
+      value_ = seg->register_value;
+    }
+    active_segment_ = *gate_flags & GATE_FLAG_HIGH ? 0 : 1;
+    out->value = segments_[0].register_value;
+    out->phase = 0.5f;
+    out->segment = active_segment_;
+    ++out;
+    ++gate_flags;
+  }
+}
+
+void SegmentGenerator::ProcessLogistic(
+    const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
+  const float coefficient = PortamentoRateToLPCoefficient(
+      parameters_[0].secondary);
+  float r = 0.5f * parameters_[0].primary + 3.5f;
+  if (value_ <= 0.0f) {
+    value_ = Random::GetFloat();
+  }
+
+  while (size--) {
+    if(*gate_flags & GATE_FLAG_RISING) {
+      value_ *= r * (1 - value_);
+    }
+    active_segment_ = *gate_flags & GATE_FLAG_HIGH ? 0 : 1;
+
+    ONE_POLE(lp_, value_, coefficient);
+    out->value = segments_[0].bipolar ? 10.0f / 8.0f * (lp_ - 0.5) : lp_;
+    out->phase = 0.5f;
+    out->segment = active_segment_;
+    ++out;
+    ++gate_flags;
+  }
+}
+
 void SegmentGenerator::ProcessZero(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
 
@@ -533,6 +641,12 @@ void SegmentGenerator::ShapeLFO(
   }
 }
 
+inline bool is_step(Configuration config) {
+  // Looping Turing types are holds
+  return config.type == TYPE_STEP
+    || (config.type == TYPE_TURING && !config.loop);
+}
+
 void SegmentGenerator::Configure(
     bool has_trigger,
     const Configuration* segment_configuration,
@@ -555,8 +669,7 @@ void SegmentGenerator::Configure(
   int first_ramp_segment = -1;
 
   for (int i = 0; i <= last_segment; ++i) {
-    has_step_segments = has_step_segments || \
-        segment_configuration[i].type == TYPE_STEP;
+    has_step_segments = has_step_segments || is_step(segment_configuration[i]);
     if (segment_configuration[i].loop) {
       if (loop_start == -1) {
         loop_start = i;
@@ -574,7 +687,7 @@ void SegmentGenerator::Configure(
   bool has_step_segments_inside_loop = false;
   if (loop_start != -1) {
     for (int i = loop_start; i <= loop_end; ++i) {
-      if (segment_configuration[i].type == TYPE_STEP) {
+      if (is_step(segment_configuration[i])) {
         has_step_segments_inside_loop = true;
         break;
       }
@@ -585,6 +698,7 @@ void SegmentGenerator::Configure(
     Segment* s = &segments_[i];
     s->bipolar = segment_configuration[i].bipolar;
     s->retrig = true;
+    s->advance_tm = false;
     if (segment_configuration[i].type == TYPE_RAMP) {
       s->retrig = !s->bipolar; // For ramp, bipolar means don't retrig.
       s->start = (num_segments == 1) ? &one_ : NULL;
@@ -595,6 +709,8 @@ void SegmentGenerator::Configure(
 
       if (i == last_segment) {
         s->end = &zero_;
+      } else if (segment_configuration[i + 1].type == TYPE_TURING) {
+        s->end = &segments_[i+1].register_value;
       } else if (segment_configuration[i + 1].type != TYPE_RAMP) {
         s->end = &parameters_[i + 1].primary;
       } else if (i == first_ramp_segment) {
@@ -624,6 +740,12 @@ void SegmentGenerator::Configure(
         // Sample if there is a loop of length 1 on this segment. Otherwise
         // track.
         s->phase = i == loop_start && i == loop_end ? &zero_ : &one_;
+      } else if (segment_configuration[i].type == TYPE_TURING) {
+        s->start = s->end = &s->register_value;
+        s->advance_tm = true;
+        s->portamento = &zero_;
+        s->time = NULL;
+        s->phase = &zero_;
       } else {
         s->portamento = &zero_;
         // Hold if there's a loop of length 1 of this segment. Otherwise, use
@@ -648,7 +770,7 @@ void SegmentGenerator::Configure(
         // Find the next STEP segment.
         bool follow_loop = loop_end != -1;
         int next_step = i;
-        while (segment_configuration[next_step].type != TYPE_STEP) {
+        while (!is_step(segment_configuration[next_step])) {
           ++next_step;
           if (follow_loop && next_step == loop_end + 1) {
             next_step = loop_start;
@@ -680,7 +802,28 @@ void SegmentGenerator::Configure(
 }
 
 /* static */
-SegmentGenerator::ProcessFn SegmentGenerator::process_fn_table_[12] = {
+SegmentGenerator::ProcessFn SegmentGenerator::process_fn_table_[16] = {
+  // RAMP
+  &SegmentGenerator::ProcessZero,
+  &SegmentGenerator::ProcessFreeRunningLFO,
+  &SegmentGenerator::ProcessDecayEnvelope,
+  &SegmentGenerator::ProcessTapLFO,
+
+  // STEP
+  &SegmentGenerator::ProcessPortamento,
+  &SegmentGenerator::ProcessPortamento,
+  &SegmentGenerator::ProcessSampleAndHold,
+  &SegmentGenerator::ProcessSampleAndHold,
+
+  // HOLD
+  &SegmentGenerator::ProcessDelay,
+  &SegmentGenerator::ProcessDelay,
+  // &SegmentGenerator::ProcessClockedSampleAndHold,
+  &SegmentGenerator::ProcessTimedPulseGenerator,
+  &SegmentGenerator::ProcessGateGenerator,
+};
+
+SegmentGenerator::ProcessFn SegmentGenerator::advanced_process_fn_table_[16] = {
   // RAMP
   &SegmentGenerator::ProcessZero,
   &SegmentGenerator::ProcessFreeRunningLFO,
@@ -698,7 +841,15 @@ SegmentGenerator::ProcessFn SegmentGenerator::process_fn_table_[12] = {
   &SegmentGenerator::ProcessDelay,
   // &SegmentGenerator::ProcessClockedSampleAndHold,
   &SegmentGenerator::ProcessTimedPulseGenerator,
-  &SegmentGenerator::ProcessGateGenerator
+  &SegmentGenerator::ProcessGateGenerator,
+
+
+  // TURING
+  &SegmentGenerator::ProcessRandom,
+  &SegmentGenerator::ProcessRandom,
+  &SegmentGenerator::ProcessTuring,
+  &SegmentGenerator::ProcessLogistic,
 };
+
 
 }  // namespace stages

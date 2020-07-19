@@ -79,8 +79,8 @@ void CvReader::Read(IOBuffer::Block* block) {
     float slider = lp_slider_[i];
     uint16_t seg_config = settings_->state().segment_configuration[i];
     MultiMode mode = (MultiMode) settings_->state().multimode;
-    if ((mode == MULTI_MODE_STAGES || mode == MULTI_MODE_STAGES_SLOW_LFO)
-        && is_bipolar(seg_config) && (seg_config & 0x03) != 0) {
+    if ((mode == MULTI_MODE_STAGES || mode == MULTI_MODE_STAGES_ADVANCED || mode == MULTI_MODE_STAGES_SLOW_LFO)
+        && is_bipolar(seg_config) && ((seg_config & 0x03) == 1 || (seg_config & 0x03) == 2)) {
       slider = 2.0f * slider - 1.0f;
     }
     float combined_value = value + slider;
