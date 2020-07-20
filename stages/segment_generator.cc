@@ -39,6 +39,7 @@
 
 #include "stages/resources.h"
 #include "stmlib/utils/gate_flags.h"
+#include "stmlib/utils/random.h"
 
 namespace stages {
 
@@ -86,6 +87,8 @@ void SegmentGenerator::Init(Settings* settings) {
   s.if_complete = 0;
   s.bipolar = false;
   s.retrig = true;
+  s.shift_register = Random::GetSample();
+  s.register_value = Random::GetFloat();
   fill(&segments_[0], &segments_[kMaxNumSegments + 1], s);
 
   Parameters p;
@@ -156,7 +159,6 @@ void SegmentGenerator::ProcessMultiSegment(
     // Decide what to do next.
     int go_to_segment = -1;
     if ((*gate_flags & GATE_FLAG_RISING) && segment.retrig) {
-    //if (*gate_flags & GATE_FLAG_RISING) {
       go_to_segment = segment.if_rising;
     } else if (*gate_flags & GATE_FLAG_FALLING) {
       go_to_segment = segment.if_falling;
@@ -474,17 +476,32 @@ void SegmentGenerator::ProcessPortamento(
 
 void SegmentGenerator::ProcessTuring(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
-  const size_t steps = size_t(16 * parameters_[0].secondary);
-  float prob = parameters_[0].primary;
-  prob = prob > 1.0f ? 1.0f : (prob < 0.0f ? 0.0f : prob);
+  const size_t steps = size_t(15 * parameters_[0].secondary + 1);
+  ParameterInterpolator primary(&primary_, parameters_[0].primary, size);
 
+  Segment* seg = &segments_[0];
   while (size--) {
+    float prob = primary.Next();
+    uint16_t sr = seg->shift_register;
     if (*gate_flags & GATE_FLAG_FALLING) {
-
+      uint16_t copied_bit = (sr << (steps - 1)) & (1 << 15);
+      uint16_t mutated = copied_bit ^ ((Random::GetFloat() < prob ) << 15);
+      sr = (sr >> 1) | mutated;
+      seg->shift_register = sr;
+    } else if (*gate_flags & GATE_FLAG_RISING) {
+      uint16_t mask = ~(((1<<16) - 1) >> steps);
+      seg->register_value = (float)(seg->shift_register & mask) / 65535.0f;
+      value_ = seg->register_value;
     }
-
+    active_segment_ = 0;
+    out->value = segments_[active_segment_].register_value;
+    out->phase = 0.5f;
+    out->segment = active_segment_;
+    ++out;
+    ++gate_flags;
   }
 }
+
 
 void SegmentGenerator::ProcessZero(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
@@ -720,7 +737,14 @@ SegmentGenerator::ProcessFn SegmentGenerator::process_fn_table_[16] = {
   &SegmentGenerator::ProcessDelay,
   // &SegmentGenerator::ProcessClockedSampleAndHold,
   &SegmentGenerator::ProcessTimedPulseGenerator,
-  &SegmentGenerator::ProcessGateGenerator
+  &SegmentGenerator::ProcessGateGenerator,
+
+
+  // TURING
+  &SegmentGenerator::ProcessTuring,
+  &SegmentGenerator::ProcessTuring,
+  &SegmentGenerator::ProcessTuring,
+  &SegmentGenerator::ProcessTuring
 };
 
 }  // namespace stages

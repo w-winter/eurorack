@@ -526,7 +526,7 @@ void ChainState::HandleRequest(Settings* settings) {
       if (channel == request_.argument[0]) {
         s->segment_configuration[i] &= ~0xff00; // Reset LFO range
         s->segment_configuration[i] &= ~0b00001011; // Reset type and bipolar bits
-        s->segment_configuration[i] |= ((type_bits + 1) % 3); // Cycle through 0,1,2 and set type bits
+        s->segment_configuration[i] |= ((type_bits + 1) % 4); // Cycle through 0,1,2 and set type bits
         dirty |= true;
       }
     } else if (request_.request == REQUEST_SET_LOOP) {

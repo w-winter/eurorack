@@ -335,6 +335,9 @@ void Ui::UpdateLEDs() {
           } else if (type == 2) {
             color = LED_COLOR_RED;
             brightness = brightness >= 0xc ? 0x1 : 0;
+          } else if (type == 3) {
+            color = LED_COLOR_RED;
+            brightness = 0;
           }
         }
         if (is_bipolar(configuration) && ((system_clock.milliseconds() >> 8) % 4 == 0)) {

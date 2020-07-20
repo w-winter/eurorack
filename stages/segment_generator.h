@@ -37,6 +37,7 @@
 
 #include "stages/ramp_extractor.h"
 #include "stages/settings.h"
+#include "stmlib/utils/random.h"
 
 namespace stages {
 
@@ -117,7 +118,7 @@ class SegmentGenerator {
     bool retrig;
     segment::FreqRange range;
 
-    int16_t shift_register;
+    uint16_t shift_register;
     float register_value;
   };
 
