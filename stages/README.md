@@ -55,7 +55,7 @@ Normal modes:
 
 Loop modes:
 1. Bright green: Unipolar LFO, 0v to 8v.
-2. Dim green: Bipolar LFO, -8v to 8v.
+2. Dim green: Bipolar LFO, -5v to 5v.
 3. Bright orange: Unipolar step/S&H, 0v to 8v.
 4. Dim orange: Bipolar step/S&H, -8v to 8v.
 5. Bright red: Unipolar sustain, 0v to 8v.

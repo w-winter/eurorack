@@ -451,8 +451,9 @@ void SegmentGenerator::ShapeLFO(
     CONSTRAIN(triangle, -plateau, plateau);
     triangle = triangle * normalization;
     float sine = InterpolateWrap(lut_sine, phase + 0.75f, 1024.0f);
-    in_out->value = (bipolar ? 1.0f : 0.5f) * Crossfade(triangle, sine, sine_amount)
-      + (bipolar ? 0.0f : 0.5f);
+    const float amplitude = bipolar ? (10.0f / 16.0f) : 0.5f;
+    const float offset = bipolar ? 0.0f : 0.5f;
+    in_out->value = amplitude * Crossfade(triangle, sine, sine_amount) + offset;
     in_out->segment = phase < 0.5f ? 0 : 1;
     ++in_out;
   }
