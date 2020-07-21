@@ -118,6 +118,7 @@ class SegmentGenerator {
     bool retrig;
     segment::FreqRange range;
 
+    bool advance_tm;
     uint16_t shift_register;
     float register_value;
   };

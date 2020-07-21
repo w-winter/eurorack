@@ -131,6 +131,16 @@ inline float SegmentGenerator::PortamentoRateToLPCoefficient(float rate) const {
   return lut_portamento_coefficient[i];
 }
 
+void advance_tm(const size_t steps, const float prob, uint16_t& shift_register, float& register_value) {
+  uint16_t sr = shift_register;
+  uint16_t copied_bit = (sr << (steps - 1)) & (1 << 15);
+  uint16_t mutated = copied_bit ^ ((Random::GetFloat() < prob ) << 15);
+  sr = (sr >> 1) | mutated;
+  shift_register = sr;
+  uint16_t mask = ~(((1<<16) - 1) >> steps);
+  register_value = (float)(shift_register & mask) / 65535.0f;
+}
+
 void SegmentGenerator::ProcessMultiSegment(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
   float phase = phase_;
@@ -167,6 +177,11 @@ void SegmentGenerator::ProcessMultiSegment(
     }
 
     if (go_to_segment != -1) {
+      if (segment.advance_tm) {
+        const size_t steps = size_t(15 * parameters_[active_segment_].secondary + 1);
+        const float prob = parameters_[active_segment_].primary;
+        advance_tm(steps, prob, (&segments_[active_segment_])->shift_register, (&segments_[active_segment_])->register_value);
+      }
       phase = 0.0f;
       const Segment& destination = segments_[go_to_segment];
       start = destination.start
@@ -482,15 +497,8 @@ void SegmentGenerator::ProcessTuring(
   Segment* seg = &segments_[0];
   while (size--) {
     float prob = primary.Next();
-    uint16_t sr = seg->shift_register;
-    if (*gate_flags & GATE_FLAG_FALLING) {
-      uint16_t copied_bit = (sr << (steps - 1)) & (1 << 15);
-      uint16_t mutated = copied_bit ^ ((Random::GetFloat() < prob ) << 15);
-      sr = (sr >> 1) | mutated;
-      seg->shift_register = sr;
-    } else if (*gate_flags & GATE_FLAG_RISING) {
-      uint16_t mask = ~(((1<<16) - 1) >> steps);
-      seg->register_value = (float)(seg->shift_register & mask) / 65535.0f;
+    if (*gate_flags & GATE_FLAG_RISING) {
+      advance_tm(steps, prob, seg->shift_register, seg->register_value);
       value_ = seg->register_value;
     }
     active_segment_ = 0;
@@ -501,7 +509,6 @@ void SegmentGenerator::ProcessTuring(
     ++gate_flags;
   }
 }
-
 
 void SegmentGenerator::ProcessZero(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
@@ -618,6 +625,7 @@ void SegmentGenerator::Configure(
     Segment* s = &segments_[i];
     s->bipolar = segment_configuration[i].bipolar;
     s->retrig = true;
+    s->advance_tm = false;
     if (segment_configuration[i].type == TYPE_RAMP) {
       s->retrig = !s->bipolar; // For ramp, bipolar means don't retrig.
       s->start = (num_segments == 1) ? &one_ : NULL;
@@ -660,6 +668,8 @@ void SegmentGenerator::Configure(
         // track.
         s->phase = i == loop_start && i == loop_end ? &zero_ : &one_;
       } else if (segment_configuration[i].type == TYPE_TURING) {
+        s->start = s->end = &s->register_value;
+        s->advance_tm = true;
         s->portamento = &zero_;
         s->time = NULL;
         s->phase = &zero_;
