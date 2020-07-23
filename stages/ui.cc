@@ -31,7 +31,6 @@
 
 #include <algorithm>
 
-#include "stages/cv_reader.h"
 #include "stages/settings.h"
 #include "stmlib/system/system_clock.h"
 
@@ -57,7 +56,7 @@ const LedColor Ui::palette_[4] = {
   LED_COLOR_GREEN,
   LED_COLOR_YELLOW,
   LED_COLOR_RED,
-  LED_COLOR_OFF
+  LED_COLOR_OFF,
 };
 
 void Ui::Init(Settings* settings, ChainState* chain_state, CvReader* cv_reader) {
@@ -324,20 +323,26 @@ void Ui::UpdateLEDs() {
           brightness = lfo_patterns[configuration >> 8 & 0x3];
         }
         LedColor color = palette_[type];
+        if (type == 3) {
+          uint8_t c = (system_clock.milliseconds() >> 7) % 3;
+          if (c == 0) {
+            color = LED_COLOR_GREEN;
+          } else if (c == 1) {
+            color = LED_COLOR_YELLOW;
+          } else {
+            color = LED_COLOR_RED;
+          }
+        }
         if (settings_->state().color_blind == 1) {
           if (type == 0) {
-            color = LED_COLOR_GREEN;
             uint8_t modulation = FadePattern(6, 13 - (2 * i)) >> 1;
             brightness = brightness * (7 + modulation) >> 4;
           } else if (type == 1) {
-            color = LED_COLOR_YELLOW;
             brightness = brightness >= 0x8 ? 0xf : 0;
           } else if (type == 2) {
-            color = LED_COLOR_RED;
             brightness = brightness >= 0xc ? 0x1 : 0;
           } else if (type == 3) {
-            color = LED_COLOR_RED;
-            brightness = 0;
+            // Not sure how to make it distinct.
           }
         }
         if (is_bipolar(configuration) && ((system_clock.milliseconds() >> 8) % 4 == 0)) {
