@@ -131,14 +131,21 @@ inline float SegmentGenerator::PortamentoRateToLPCoefficient(float rate) const {
   return lut_portamento_coefficient[i];
 }
 
-void advance_tm(const size_t steps, const float prob, uint16_t& shift_register, float& register_value) {
+static void advance_tm(
+    const size_t steps,
+    const float prob,
+    uint16_t& shift_register,
+    float& register_value,
+    bool bipolar) {
   uint16_t sr = shift_register;
   uint16_t copied_bit = (sr << (steps - 1)) & (1 << 15);
   uint16_t mutated = copied_bit ^ ((Random::GetFloat() < prob ) << 15);
   sr = (sr >> 1) | mutated;
   shift_register = sr;
-  uint16_t mask = ~(((1<<16) - 1) >> steps);
-  register_value = (float)(shift_register & mask) / 65535.0f;
+  register_value = (float)(shift_register) / 65535.0f;
+  if (bipolar) {
+    register_value = (10.0f / 8.0f) * (register_value - 0.5f);
+  }
 }
 
 void SegmentGenerator::ProcessMultiSegment(
@@ -180,7 +187,11 @@ void SegmentGenerator::ProcessMultiSegment(
       if (segment.advance_tm) {
         const size_t steps = size_t(15 * parameters_[active_segment_].secondary + 1);
         const float prob = parameters_[active_segment_].primary;
-        advance_tm(steps, prob, (&segments_[active_segment_])->shift_register, (&segments_[active_segment_])->register_value);
+        advance_tm(
+            steps, prob,
+            (&segments_[active_segment_])->shift_register,
+            (&segments_[active_segment_])->register_value,
+            segment.bipolar);
       }
       phase = 0.0f;
       const Segment& destination = segments_[go_to_segment];
@@ -498,7 +509,7 @@ void SegmentGenerator::ProcessTuring(
   while (size--) {
     float prob = primary.Next();
     if (*gate_flags & GATE_FLAG_RISING) {
-      advance_tm(steps, prob, seg->shift_register, seg->register_value);
+      advance_tm(steps, prob, seg->shift_register, seg->register_value, seg->bipolar);
       value_ = seg->register_value;
     }
     active_segment_ = 0;
