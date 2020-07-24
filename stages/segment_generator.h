@@ -160,6 +160,7 @@ class SegmentGenerator {
   DECLARE_PROCESS_FN(TimedPulseGenerator);
   DECLARE_PROCESS_FN(GateGenerator);
   DECLARE_PROCESS_FN(SampleAndHold);
+  DECLARE_PROCESS_FN(TrackAndHold);
   DECLARE_PROCESS_FN(TapLFO);
   DECLARE_PROCESS_FN(FreeRunningLFO);
   DECLARE_PROCESS_FN(Delay);

@@ -276,6 +276,27 @@ void SegmentGenerator::ProcessSampleAndHold(
   }
 }
 
+void SegmentGenerator::ProcessTrackAndHold(
+    const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
+  const float coefficient = PortamentoRateToLPCoefficient(
+      parameters_[0].secondary);
+  ParameterInterpolator primary(&primary_, parameters_[0].primary, size);
+
+  while (size--) {
+    const float p = primary.Next();
+    gate_delay_.Write(*gate_flags);
+    if (gate_delay_.Read(kSampleAndHoldDelay) & GATE_FLAG_HIGH) {
+      value_ = p;
+    }
+    ONE_POLE(lp_, value_, coefficient);
+    out->value = lp_;
+    out->phase = 0.5f;
+    out->segment = 0;
+    ++gate_flags;
+    ++out;
+  }
+}
+
 void SegmentGenerator::ProcessClockedSampleAndHold(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
   const float frequency = RateToFrequency(parameters_[0].secondary);
@@ -617,7 +638,7 @@ SegmentGenerator::ProcessFn SegmentGenerator::process_fn_table_[12] = {
   &SegmentGenerator::ProcessPortamento,
   &SegmentGenerator::ProcessPortamento,
   &SegmentGenerator::ProcessSampleAndHold,
-  &SegmentGenerator::ProcessSampleAndHold,
+  &SegmentGenerator::ProcessTrackAndHold,
 
   // HOLD
   &SegmentGenerator::ProcessDelay,
