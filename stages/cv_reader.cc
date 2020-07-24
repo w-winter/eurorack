@@ -88,7 +88,7 @@ void CvReader::Read(IOBuffer::Block* block) {
             // -128 is lowest and 127 is highest
             // Original goes from -48 (~6 seconds) to 48 (C1)
             const float slider_max = 48.0f / 96.0f + 0.5; // C1
-            const float slider_min = -120.0f / 96.0f + 0.5; // 8 minutes
+            const float slider_min = -84.0f / 96.0f + 0.5; // 1 minutes
             slider = (slider_max - slider_min) * slider + slider_min;
           }
           // Leave tap LFO the same
@@ -97,7 +97,7 @@ void CvReader::Read(IOBuffer::Block* block) {
           // 1.0f -> 32sec
           // 2.0f -> ~19min; these seemed waaay to sensitive in practice
           // 1.25 -> ~58sec, which is about what a Maths linear stage is
-          slider = 1.25f * slider;
+          // slider = 1.25f * slider; // Felt too sensitive.
         }
       }
     }
