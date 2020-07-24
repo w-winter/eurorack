@@ -8,10 +8,10 @@
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -19,7 +19,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-// 
+//
 // See http://creativecommons.org/licenses/MIT/ for more information.
 //
 // -----------------------------------------------------------------------------
@@ -30,7 +30,7 @@
 // - Periodic rhythmic pattern.
 // - Assume that the pulse width is constant, deduct the period from the on time
 //   and the pulse width.
-// 
+//
 // All prediction strategies are concurrently tested, and the output from the
 // best performing one is selected (à la early Scheirer/Goto beat trackers).
 
@@ -54,48 +54,49 @@ class RampExtractor {
  public:
   RampExtractor() { }
   ~RampExtractor() { }
-  
+
   void Init(float sample_rate, float max_frequency);
   void Process(
       Ratio r,
       const stmlib::GateFlags* gate_flags,
       float* ramp,
       size_t size);
-  
+
  private:
   struct Pulse {
     uint32_t on_duration;
     uint32_t total_duration;
     float pulse_width;
   };
-  
+
   static const size_t kHistorySize = 16;
 
   float ComputeAveragePulseWidth(float tolerance) const;
-  
+
   float PredictNextPeriod();
 
   size_t current_pulse_;
   Pulse history_[kHistorySize];
-  
+
   float lp_period_;
   float prediction_error_[kMaxPatternPeriod + 1];
   float predicted_period_[kMaxPatternPeriod + 1];
   float average_pulse_width_;
-  
+
   float train_phase_;
   float frequency_;
-  
+
   uint32_t reset_interval_;
+  float sample_rate_;
   int reset_counter_;
   float max_ramp_value_;
   float f_ratio_;
   float max_train_phase_;
-  
+
   float max_frequency_;
   float min_period_;
   float min_period_hysteresis_;
-  
+
   DISALLOW_COPY_AND_ASSIGN(RampExtractor);
 };
 

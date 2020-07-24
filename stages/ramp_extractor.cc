@@ -8,10 +8,10 @@
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -19,7 +19,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-// 
+//
 // See http://creativecommons.org/licenses/MIT/ for more information.
 //
 // -----------------------------------------------------------------------------
@@ -30,7 +30,7 @@
 // - Periodic rhythmic pattern.
 // - Assume that the pulse width is constant, deduct the period from the on time
 //   and the pulse width.
-// 
+//
 // All prediction strategies are concurrently tested, and the output from the
 // best performing one is selected (à la early Scheirer/Goto beat trackers).
 
@@ -55,8 +55,9 @@ void RampExtractor::Init(float sample_rate, float max_frequency) {
   max_frequency_ = max_frequency;
   min_period_ = 1.0f / max_frequency_;
   min_period_hysteresis_ = min_period_;
-  reset_interval_ = 5.0f * sample_rate;
-  
+  sample_rate_ = sample_rate;
+  reset_interval_ = 5.0f * sample_rate_;
+
   train_phase_ = 0.0f;
   frequency_ = 0.0f;
   max_ramp_value_ = 1.0f;
@@ -72,7 +73,7 @@ void RampExtractor::Init(float sample_rate, float max_frequency) {
   current_pulse_ = 0;
   history_[current_pulse_].on_duration = 0;
   history_[current_pulse_].total_duration = 0;
-  
+
   average_pulse_width_ = 0.0f;
   fill(&prediction_error_[0], &prediction_error_[kMaxPatternPeriod + 1], 50.0f);
   fill(&predicted_period_[0], &predicted_period_[kMaxPatternPeriod + 1],
@@ -95,7 +96,7 @@ float RampExtractor::ComputeAveragePulseWidth(float tolerance) const {
 
 float RampExtractor::PredictNextPeriod() {
   float last_period = static_cast<float>(history_[current_pulse_].total_duration);
-  
+
   int best_pattern_period = 0;
   for (int i = 0; i <= kMaxPatternPeriod; ++i) {
     float error = predicted_period_[i] - last_period;
@@ -108,7 +109,7 @@ float RampExtractor::PredictNextPeriod() {
       size_t t = current_pulse_ + 1 + kHistorySize - i;
       predicted_period_[i] = history_[t % kHistorySize].total_duration;
     }
-    
+
     if (prediction_error_[i] < prediction_error_[best_pattern_period]) {
       best_pattern_period = i;
     }
@@ -117,14 +118,14 @@ float RampExtractor::PredictNextPeriod() {
 }
 
 void RampExtractor::Process(
-    Ratio ratio, 
+    Ratio ratio,
     const GateFlags* gate_flags,
-    float* ramp, 
+    float* ramp,
     size_t size) {
   float frequency = frequency_;
   float train_phase = train_phase_;
   float max_train_phase = max_train_phase_;
-  
+
   while (size--) {
     GateFlags flags = *gate_flags++;
 
@@ -132,13 +133,14 @@ void RampExtractor::Process(
     if (flags & GATE_FLAG_RISING) {
       Pulse& p = history_[current_pulse_];
       const bool record_pulse = p.total_duration < reset_interval_;
-      
+
       if (!record_pulse) {
         train_phase = 0.0f;
         reset_counter_ = ratio.q;
         f_ratio_ = ratio.ratio;
         max_train_phase = static_cast<float>(ratio.q);
         frequency = 1.0f / PredictNextPeriod();
+        reset_interval_ = 4.0f * p.total_duration;
       } else {
         if (float(p.total_duration) <= min_period_hysteresis_) {
           min_period_hysteresis_ = min_period_ * 1.05f;
@@ -169,18 +171,20 @@ void RampExtractor::Process(
           float warp =  expected - train_phase + 1.0f;
           frequency *= max(warp, 0.01f);
         }
+        reset_interval_ = static_cast<uint32_t>(
+            std::max(4.0f / frequency, sample_rate_ * 5.0f));
         current_pulse_ = (current_pulse_ + 1) % kHistorySize;
       }
       history_[current_pulse_].on_duration = 0;
       history_[current_pulse_].total_duration = 0;
     }
-    
+
     // Update history buffer with total duration and on duration.
     ++history_[current_pulse_].total_duration;
     if (flags & GATE_FLAG_HIGH) {
       ++history_[current_pulse_].on_duration;
     }
-    
+
     if ((flags & GATE_FLAG_FALLING) &&
         average_pulse_width_ > 0.0f) {
       float t_on = static_cast<float>(history_[current_pulse_].on_duration);
@@ -193,12 +197,12 @@ void RampExtractor::Process(
     if (train_phase >= max_train_phase) {
       train_phase = max_train_phase;
     }
-    
+
     float phase = train_phase * f_ratio_;
     phase -= static_cast<float>(static_cast<int32_t>(phase));
     *ramp++ = phase;
   }
-  
+
   frequency_ = frequency;
   train_phase_ = train_phase;
   max_train_phase_ = max_train_phase;
