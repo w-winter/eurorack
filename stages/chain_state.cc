@@ -519,12 +519,8 @@ void ChainState::HandleRequest(Settings* settings) {
 
     if (request_.request == REQUEST_SET_SEGMENT_TYPE) {
       if (channel == request_.argument[0]) {
-        if (is_bipolar(s->segment_configuration[i])) {
-          s->segment_configuration[i] &= ~0b00001011; // Reset type and bipolar bits
-          s->segment_configuration[i] |= ((type_bits + 1) % 3); // Cycle through 0,1,2 and set type bits
-        } else {
-          s->segment_configuration[i] |= 0b00001000; // set bipolar bit
-        }
+        s->segment_configuration[i] &= ~0b00001011; // Reset type and bipolar bits
+        s->segment_configuration[i] |= ((type_bits + 1) % 3); // Cycle through 0,1,2 and set type bits
         dirty |= true;
       }
     } else if (request_.request == REQUEST_SET_LOOP) {

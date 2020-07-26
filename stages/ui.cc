@@ -31,6 +31,7 @@
 
 #include <algorithm>
 
+#include "stages/cv_reader.h"
 #include "stages/settings.h"
 #include "stmlib/system/system_clock.h"
 
@@ -59,17 +60,20 @@ const LedColor Ui::palette_[4] = {
   LED_COLOR_OFF
 };
 
-void Ui::Init(Settings* settings, ChainState* chain_state) {
+void Ui::Init(Settings* settings, ChainState* chain_state, CvReader* cv_reader) {
   leds_.Init();
   switches_.Init();
 
   system_clock.Init();
   fill(&press_time_[0], &press_time_[kNumSwitches], 0);
   fill(&press_time_multimode_toggle_[0], &press_time_multimode_toggle_[kNumSwitches], 0);
+  fill(&slider_when_pressed_[0], &slider_when_pressed_[kNumChannels], -1.0f);
+  fill(&pot_when_pressed_[0], &pot_when_pressed_[kNumChannels], -1.0f);
 
   settings_ = settings;
   mode_ = UI_MODE_NORMAL;
   chain_state_ = chain_state;
+  cv_reader_ = cv_reader;
 
   displaying_multimode_toggle_ = 0;
   displaying_multimode_toggle_pressed_ = 0;
@@ -121,6 +125,7 @@ void Ui::Poll() {
 
   }
 
+
   // Forward presses information to chain state
   ChainState::ChannelBitmask pressed = 0;
   //if (multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO) {
@@ -132,9 +137,61 @@ void Ui::Poll() {
   //}
   chain_state_->set_local_switch_pressed(pressed);
 
+  uint8_t changing_prop = 0;
+  if (multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO) {
+    bool dirty = false;
+    uint8_t* seg_config = settings_->mutable_state()->segment_configuration;
+    for (uint8_t i = 0; i < kNumChannels; ++i) {
+      if (switches_.pressed(i)) {
+        float slider = cv_reader_->lp_slider(i);
+        float pot = cv_reader_->lp_pot(i);
+
+        uint8_t old_flags = seg_config[i];
+
+        if (slider_when_pressed_[i] == -1.0f) {
+          slider_when_pressed_[i] = slider;
+        } else if (
+            changing_slider_prop_ >> i & 1 // in the middle of change, so keep changing
+            || fabs(slider_when_pressed_[i] - slider) > 0.1f) {
+          changing_slider_prop_ |= 1 << i;
+
+          // none for now
+        }
+
+        if (pot_when_pressed_[i] == -1.0f) {
+          pot_when_pressed_[i] = pot;
+        } else if(
+            changing_pot_prop_ >> i & 1 // in the middle of change, so keep changing
+            || fabs(pot_when_pressed_[i] - pot) > 0.1f) {
+
+          changing_pot_prop_ |= 1 << i;
+          if (pot < 0.5f) {
+            seg_config[i] &= ~0b00001000;
+          } else {
+            seg_config[i] |= 0b00001000;
+          }
+        }
+        dirty = dirty || seg_config[i] != old_flags;
+      } else {
+        changing_pot_prop_ &= ~(1 << i);
+        changing_slider_prop_ &= ~(1 << i);
+        slider_when_pressed_[i] = -1.0f;
+        pot_when_pressed_[i] = -1.0f;
+      }
+    }
+    if (dirty) {
+      settings_->SaveState();
+    }
+    changing_prop = changing_pot_prop_ | changing_slider_prop_;
+    // We're changing prop parameters
+    if (changing_prop) {
+      chain_state_->SuspendSwitches();
+    }
+  }
+
   // Detect very long presses for multi-mode toggle (using a negative counter)
   for (uint8_t i = 0; i < kNumSwitches; ++i) {
-    if (switches_.pressed(i)) {
+    if (switches_.pressed(i) & !changing_prop) {
       if (press_time_multimode_toggle_[i] != -1) {
         ++press_time_multimode_toggle_[i];
       }

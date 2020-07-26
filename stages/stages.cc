@@ -347,7 +347,7 @@ void Init() {
 
   cv_reader.Init(&settings, &chain_state);
 
-  ui.Init(&settings, &chain_state);
+  ui.Init(&settings, &chain_state, &cv_reader);
 
   if (freshly_baked && !skip_factory_test) {
     factory_test.Start(&settings, &cv_reader, &gate_inputs, &ui);

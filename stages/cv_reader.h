@@ -64,6 +64,14 @@ class CvReader {
     return lp_cv_2_[i];
   }
 
+  inline float lp_slider(int i) const {
+    return lp_slider_[i];
+  }
+
+  inline float lp_pot(int i) const {
+    return lp_pot_[i];
+  }
+
  private:
   Settings* settings_;
   ChainState* chain_state_;
