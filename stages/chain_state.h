@@ -121,18 +121,17 @@ class ChainState {
     }
 
     inline size_t index() const {
-      return size_t(flags) >> 5;
+      return (size_t(flags) >> 5) & 0b111;
     }
 
     inline bool UpdateFlags(
         uint8_t index,
-        uint8_t configuration,
-        bool bipolar,
+        uint16_t configuration,
         bool input_patched) {
       uint8_t new_flags = index << 5;
-      new_flags |= configuration;
+      new_flags |= configuration & 0b00000111;
       new_flags |= input_patched ? 0x08 : 0;
-      new_flags |= bipolar ? 0b00010000: 0;
+      new_flags |= (configuration & 0b00001000) << 1;
       bool dirty = new_flags != flags;
       flags = new_flags;
       return dirty;
@@ -157,7 +156,7 @@ class ChainState {
       const Settings& settings,
       const SegmentGenerator::Output& last_out);
   void UpdateLocalPotCvSlider(const IOBuffer::Block& block);
-  void Configure(SegmentGenerator* segment_generator);
+  void Configure(SegmentGenerator* segment_generator, Settings* settings);
   void PollSwitches();
   void BindRemoteParameters(SegmentGenerator* segment_generator);
   void BindLocalParameters(

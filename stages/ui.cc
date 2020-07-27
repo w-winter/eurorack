@@ -140,22 +140,31 @@ void Ui::Poll() {
   uint8_t changing_prop = 0;
   if (multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO) {
     bool dirty = false;
-    uint8_t* seg_config = settings_->mutable_state()->segment_configuration;
+    uint16_t* seg_config = settings_->mutable_state()->segment_configuration;
     for (uint8_t i = 0; i < kNumChannels; ++i) {
       if (switches_.pressed(i)) {
         float slider = cv_reader_->lp_slider(i);
         float pot = cv_reader_->lp_pot(i);
 
-        uint8_t old_flags = seg_config[i];
+        uint16_t old_flags = seg_config[i];
 
         if (slider_when_pressed_[i] == -1.0f) {
           slider_when_pressed_[i] = slider;
-        } else if (
-            changing_slider_prop_ >> i & 1 // in the middle of change, so keep changing
+        } else if (changing_slider_prop_ >> i & 1 // in the middle of change, so keep changing
             || fabs(slider_when_pressed_[i] - slider) > 0.1f) {
           changing_slider_prop_ |= 1 << i;
 
-          // none for now
+          if (chain_state_->loop_status(i) == ChainState::LOOP_STATUS_SELF
+              && (seg_config[i] & 0x3) == 0) { // Only LFOs responds
+
+            seg_config[i] &= 0xfcff; // reset range bits
+            if (slider < 0.25) {
+              seg_config[i] |= 0x0100;
+            } else if (slider > 0.75) {
+              seg_config[i] |= 0x0200;
+            }
+            // default middle range is 0, so no else
+          }
         }
 
         if (pot_when_pressed_[i] == -1.0f) {
@@ -293,8 +302,15 @@ void Ui::UpdateLEDs() {
         FadePattern(4, 0x0f),  // END
         FadePattern(4, 0x08),  // SELF
       };
+
+      uint8_t lfo_patterns[3] = {
+        FadePattern(4, 0x08), // Default, middle
+        FadePattern(6, 0x08), // slow
+        FadePattern(2, 0x08), // fast
+      };
+
       for (size_t i = 0; i < kNumChannels; ++i) {
-        uint8_t configuration = settings_->state().segment_configuration[i];
+        uint16_t configuration = settings_->state().segment_configuration[i];
         if (multimode == MULTI_MODE_OUROBOROS || multimode == MULTI_MODE_OUROBOROS_ALTERNATE) {
           configuration = configuration >> 4; // slide to ouroboros bits
         }
@@ -304,6 +320,9 @@ void Ui::UpdateLEDs() {
             ? (configuration & 0x4 ? 3 : 0)
             : chain_state_->loop_status(i)
           ];
+        if (chain_state_->loop_status(i) == ChainState::LOOP_STATUS_SELF && type == 0) {
+          brightness = lfo_patterns[configuration >> 8 & 0x3];
+        }
         LedColor color = palette_[type];
         if (settings_->state().color_blind == 1) {
           if (type == 0) {
@@ -320,7 +339,7 @@ void Ui::UpdateLEDs() {
         }
         if (is_bipolar(configuration) && ((system_clock.milliseconds() >> 8) % 4 == 0)) {
           color = LED_COLOR_RED;
-          brightness >>= 3;
+          brightness = 0x1;
         }
         leds_.set(
             LED_GROUP_UI + i,

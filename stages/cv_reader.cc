@@ -101,7 +101,7 @@ void CvReader::Read(IOBuffer::Block* block) {
         }
       }
     }
-    int8_t seg_config = settings_->state().segment_configuration[i];
+    uint16_t seg_config = settings_->state().segment_configuration[i];
     if (is_bipolar(seg_config) && (seg_config & 0x03) != 0) {
       slider = 2.0f * slider - 1.0f;
     }

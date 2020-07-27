@@ -62,10 +62,17 @@ enum Type {
   TYPE_HOLD = 2,
 };
 
+enum FreqRange {
+  RANGE_DEFAULT = 0,
+  RANGE_SLOW = 1,
+  RANGE_FAST = 2,
+};
+
 struct Configuration {
   Type type;
   bool loop;
   bool bipolar;
+  FreqRange range; // For LFOs
 };
 
 struct Parameters {
@@ -106,6 +113,7 @@ class SegmentGenerator {
     int8_t if_complete;
     bool bipolar;
     bool retrig;
+    segment::FreqRange range;
   };
 
   void Init(Settings* settings);
@@ -127,6 +135,7 @@ class SegmentGenerator {
   inline void ConfigureSingleSegment(
       bool has_trigger,
       segment::Configuration segment_configuration) {
+    segments_[0].range = segment_configuration.range;
     segments_[0].bipolar = segment_configuration.bipolar;
     segments_[0].retrig = (segment_configuration.type != segment::TYPE_RAMP) || !segment_configuration.bipolar;
     int i = has_trigger ? 2 : 0;

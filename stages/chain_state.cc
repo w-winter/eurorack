@@ -31,6 +31,7 @@
 #include <algorithm>
 
 #include "stages/drivers/serial_link.h"
+#include "stages/segment_generator.h"
 #include "stages/settings.h"
 #include "stages/ui.h"
 
@@ -227,7 +228,7 @@ void ChainState::ReceiveLeft() {
   }
 }
 
-void ChainState::Configure(SegmentGenerator* segment_generator) {
+void ChainState::Configure(SegmentGenerator* segment_generator, Settings* settings) {
   size_t last_local_channel = local_channel_index(0) + kNumChannels;
   size_t last_channel = size_ * kNumChannels;
   size_t last_patched_channel = rx_last_patched_channel_;
@@ -250,6 +251,7 @@ void ChainState::Configure(SegmentGenerator* segment_generator) {
       } else {
         // Create a free-running channel.
         segment::Configuration c = local_channel(i)->configuration();
+        c.range = segment::FreqRange(settings->state().segment_configuration[i] >> 8 & 0x03);
         segment_generator[i].ConfigureSingleSegment(false, c);
         binding_[num_bindings_].generator = i;
         binding_[num_bindings_].source = i;
@@ -286,6 +288,9 @@ void ChainState::Configure(SegmentGenerator* segment_generator) {
           // Bind local CV/pot to this segment's parameters.
           binding_[num_bindings_].source = i + num_segments;
           ++num_internal_bindings_;
+          // Note: this will only have an effect on LFOs
+          configuration[num_segments].range = segment::FreqRange(
+              settings->state().segment_configuration[i + num_segments] >> 8 & 0x03);
         } else {
           // Bind remote CV/pot to this segment's parameters.
           binding_[num_bindings_].source = channel;
@@ -297,7 +302,8 @@ void ChainState::Configure(SegmentGenerator* segment_generator) {
         add_more_segments = channel < last_channel && \
              !channel_state_[channel].input_patched();
       }
-      if (dirty || num_segments != segment_generator[i].num_segments()) {
+      // Change from original: Always mark single gated segments dirty to update range
+      if (dirty || num_segments != segment_generator[i].num_segments() || num_segments == 1) {
         segment_generator[i].Configure(true, configuration, num_segments);
       }
       set_loop_status(i, 0, last_loop);
@@ -324,8 +330,7 @@ inline void ChainState::UpdateLocalState(
     bool input_patched = unpatch_counter_[i] < kUnpatchedInputDelay;
     dirty_[local_channel_index(i)] = local_channel(i)->UpdateFlags(
         index_,
-        settings.state().segment_configuration[i] & 0b00000111,
-        is_bipolar(settings.state().segment_configuration[i]),
+        settings.state().segment_configuration[i],
         input_patched);
     if (input_patched) {
       input_patched_bitmask |= 1 << i;
@@ -572,7 +577,7 @@ void ChainState::Update(
       break;
     case 3:
       ReceiveLeft();
-      Configure(segment_generator);
+      Configure(segment_generator, settings);
       BindRemoteParameters(segment_generator);
       break;
   }

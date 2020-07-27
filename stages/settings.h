@@ -75,7 +75,7 @@ struct PersistentData {
 #define is_bipolar(seg_config) seg_config & 0x08
 
 struct State {
-  uint8_t segment_configuration[kNumChannels];
+  uint16_t segment_configuration[kNumChannels];
   uint8_t color_blind;
   uint8_t multimode;
   enum { tag = 0x54415453 };  // STAT

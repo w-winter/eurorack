@@ -328,11 +328,47 @@ Ratio divider_ratios[] = {
   { 3.999999f, 1 },
 };
 
+Ratio divider_ratios_slow[] = {
+  { 0.124999f, 8 },
+  { 0.142856f, 7 },
+  { 0.166666f, 6 },
+  { 0.199999f, 5 },
+  { 0.249999f, 4 },
+  { 0.333333f, 3 },
+  { 0.499999f, 2 },
+  { 0.999999f, 1 },
+};
+
+Ratio divider_ratios_fast[] = {
+  { 0.999999f, 1 },
+  { 1.999999f, 1 },
+  { 2.999999f, 1 },
+  { 3.999999f, 1 },
+  { 4.999999f, 1 },
+  { 5.999999f, 1 },
+  { 6.999999f, 1 },
+  { 7.999999f, 1 },
+};
+
 void SegmentGenerator::ProcessTapLFO(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
   float ramp[12];
-  Ratio r = ramp_division_quantizer_.Lookup(
-      divider_ratios, parameters_[0].primary * 1.03f, 7);
+  Ratio r;
+  switch (segments_[0].range) {
+    case segment::RANGE_DEFAULT:
+      r = ramp_division_quantizer_.Lookup(
+          divider_ratios, parameters_[0].primary * 1.03f, 7);
+      break;
+    case segment::RANGE_SLOW:
+      r = ramp_division_quantizer_.Lookup(
+          divider_ratios_slow, parameters_[0].primary * 1.03f, 8);
+      break;
+    case segment::RANGE_FAST:
+      r = ramp_division_quantizer_.Lookup(
+          divider_ratios_fast, parameters_[0].primary * 1.03f, 8);
+      break;
+  }
+
   ramp_extractor_.Process(r, gate_flags, ramp, size);
   for (size_t i = 0; i < size; ++i) {
     out[i].phase = ramp[i];
@@ -346,9 +382,22 @@ void SegmentGenerator::ProcessFreeRunningLFO(
   float f = 96.0f * (parameters_[0].primary - 0.5f);
   CONSTRAIN(f, -128.0f, 127.0f);
 
-  const float frequency = SemitonesToRatio(f) * 2.0439497f / kSampleRate;
+  float frequency = SemitonesToRatio(f) * 2.0439497f / kSampleRate;
 
   active_segment_ = 0;
+  switch (segments_[active_segment_].range) {
+    case segment::RANGE_SLOW:
+      frequency /= 16;
+      break;
+    case segment::RANGE_FAST:
+      frequency *= 64;
+      frequency = min(frequency, 7040.0f / kSampleRate); // A8, things seems to get weird after this...
+      break;
+    default:
+      // It's good where it is
+      break;
+  }
+
   for (size_t i = 0; i < size; ++i) {
     phase_ += frequency;
     if (phase_ >= 1.0f) {
