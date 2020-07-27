@@ -318,7 +318,8 @@ void Ui::UpdateLEDs() {
             brightness = brightness >= 0xc ? 0x1 : 0;
           }
         }
-        if (is_bipolar(configuration)) {
+        if (is_bipolar(configuration) && ((system_clock.milliseconds() >> 8) % 4 == 0)) {
+          color = LED_COLOR_RED;
           brightness >>= 3;
         }
         leds_.set(
