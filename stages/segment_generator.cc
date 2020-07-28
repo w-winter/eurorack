@@ -398,6 +398,10 @@ void SegmentGenerator::ProcessFreeRunningLFO(
       break;
   }
 
+  if (settings_->state().multimode == MULTI_MODE_STAGES_SLOW_LFO) {
+    frequency /= 8.0f;
+  }
+
   for (size_t i = 0; i < size; ++i) {
     phase_ += frequency;
     if (phase_ >= 1.0f) {

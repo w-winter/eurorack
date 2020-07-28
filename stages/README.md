@@ -2,7 +2,22 @@ Mutable Instruments Stages multi-mode firmware
 ==============================================
 
 This is a unofficial firmware for Mutable Instruments Stages. It was originally created by joeSeggiola and started as a modification to let you enter and exit the "Ouroboros" mode (the **harmonic oscillator** easter egg) at runtime, while the module is powered on. Then, it evolved adding the ability to sequence harmonic ratios, enable slower free-running LFOs and providing a completely alternative mode that transforms the module into **six identical DAHDSR envelope generators**.
-This fork further adds bipolar modes for each segment type, re-trigger control for ramp segments, and restores v/oct tracking on slow-LFO mode while expanding slider range.
+
+This fork further adds:
+
+- **Polarity control for each segment type** (except non-looping ramp/green). Hold button and turn pot to control polarity (left = bipolar, right = unipolar). When bipolar, the segment will flash dull red about 1/sec.
+- **Re-trigger control for ramp segments**. Hold button and turn pot to control re-trigger behavior. When re-trigger is disabled, the segment will flash dull red about 1/sec.
+- **Independent LFO (clocked and free) range control for each segment**;
+    - For free-running, ranges are the same as Tides: 2 min to 2hz at the slowest, 0.125hz to 32hz (default and Stages' original range), and 8hz to about 2khz at the fastest. As with the original Stages and Tides, this range is further expanded by CV.
+    - For clocked, ranges are: 1/8 to 1 in low, 1/4 to 4 by default (as in original Stages), 1 to 8x in high.
+    - Hold the segment's button and move its slider to change LFO range. LFO range is indicated by the speed of the mode indicator LED's cycle. Note: artifacts appear at high frequencies depending on wave shape. Frequency has been capped at 7khz (A8) as the module acts very strangely after that...
+- **Arbitrarily slow clocked LFOs**. Previously, clocked LFOs in Stages had a reset timeout at about 5 seconds; now, the reset timeout adapts to the clock cycle, allowing for arbitrarily slow clocked LFOs (logic taken from Tides 2).
+- **Track & hold support**. While you can [get track & hold with the original Stages](https://forum.mutable-instruments.net/t/stages-track-and-hold/16365/11), it takes 3 segments to do so. Now, a single, looping, gated step (orange) segments will track & hold. Single, non-looping, gated step segments still sample & hold.
+
+For any settings that requires you hold the button to change, moving the slider or pot will disable loop mode changes or multi-mode changes, so you don't need to worry about holding th button for too long.
+Also changes to those settings won't occur unless you move it's respective control; thus, you won't accidentally change the range on an LFO while changing it's polarity unless you move the slider.
+If the slider/pot is already in the position of the setting you want, simply wiggle it to one side and then back into the desired setting while the button is held.
+After you release the button, you can then use the pot/slider as normal.
 
 ⚠️ **Warning:** This firmware has **not** been tested on multiple [chained][1] modules. It could behave strangely if chained. Obviously I'm not responsible for any issue you might encounter.
 
@@ -14,13 +29,30 @@ Download and installation
 
 📦 Download the **[latest WAV file here][2]** and follow the [firmware update procedure here][3]. Source code is available [here][8]. joeSeggiola's original source code is available [here][9].
 
+IMPORTANT: Installation will clear the module settings if coming from a different firmware. Right after updating from an earlier version of this fork, the stock Stages firmware or joeSeggiola's version, Stages may continuously cycle between green, orange, and red LEDs. Turning the module off and on again should restore functionality. This happens because this fork expands the amount of data stored for each segment, so will be incompatible with the settings stored from a different firmware. If you encounter problems, please let me know, either in a GitHub issue or otherwise.
+
 [2]: https://github.com/qiemem/eurorack/releases/latest
 [3]: https://mutable-instruments.net/modules/stages/manual/#firmware
 [8]: https://github.com/qiemem/eurorack/tree/stages-multi/stages
 [9]: https://github.com/joeSeggiola/eurorack/tree/stages-multi/stages
 
+Core modification usage
+---
 
-Usage
+In the first three modes, each segment type now has both a unipolar and bipolar mode.
+To make a segment bipolar, hold down its button and turn its pot above the halfway point.
+To make a segment unipolar, either press the button three times (changing type resets polarity) or hold down its button and turn its pot below the halfway point.
+When in bipolar mode, the segment will a dim red color about once a second (this should be visible regardless of base color or looping mode).
+
+A bipolar ramp mode doesn't really make sense since ramps slide between the values of their neighbors.
+So, "bipolar" mode ramps instead prevents re-triggering if a trigger is received when that ramp segment is active.
+This allows you to make standard Maths like clock dividers by setting the first ramp segment to "bipolar".
+This also works on segments besides the first: for instance, set the D of an AD envelope to "bipolar" to prevent re-triggering on decay rather than attack.
+
+Bipolar LFOs (single, looping green segments) output -5v to 5v. All other bipolar segment types output -8v to 8v.
+
+
+Multi-mode usage
 -----
 
 Hold one of the six buttons for 5 seconds to change mode. This setting is persisted when the module reboots. From left to right:
@@ -31,37 +63,6 @@ Hold one of the six buttons for 5 seconds to change mode. This setting is persis
 4. [Six DAHDSR envelope generators](#six-dahdsr-envelope-generators)
 5. [Harmonic oscillator](#harmonic-oscillator), aka Ouroboros mode
 6. Harmonic oscillator with [alternate controls](#harmonic-oscillator-with-alternate-controls)
-
-### Polarity and re-trigger control
-
-In the first three modes, each segment type now has both a unipolar and bipolar mode.
-When on a particular segment type, simply press the mode button again (short press) to access the bipolar mode.
-Bipolar mode is indicated by a dimmed LED.
-Thus, pressing the mode button now advances through six states rather than three, for both looping and non-looping segments.
-
-A bipolar ramp mode doesn't really make sense since ramps slide between the values of their neighbors.
-So, "bipolar" mode ramps instead prevents re-triggering if a trigger is received when that ramp segment is active.
-This allows you to make standard Maths like clock dividers by setting the first ramp segment to "bipolar".
-This also works on segments besides the first: for instance, set the D of an AD envelope to "bipolar" to prevent re-triggering on decay rather than attack.
-
-Normal modes:
-
-1. Bright green: Unipolar ramp.
-2. Dim green: Non-re-triggering ramp.
-3. Bright orange: Unipolar step, 0v to 8v.
-4. Dim orange: Bipolar step, -8v to 8v.
-5. Bright red: Unipolar hold, 0v to 8v.
-6. Dim red: Bipolar hold, -8v to 8v.
-
-Loop modes:
-1. Bright green: Unipolar LFO, 0v to 8v.
-2. Dim green: Bipolar LFO, -5v to 5v.
-3. Bright orange: Unipolar step/S&H, 0v to 8v.
-4. Dim orange: Bipolar step/S&H, -8v to 8v.
-5. Bright red: Unipolar sustain, 0v to 8v.
-6. Dim red: Bipolar sustain, -8v to 8v.
-
-Hot tip: apply a negative voltage using a single ramp or hold segment to an LFO segment to increase period to 13 minutes.
 
 ### Segment generator
 
@@ -74,15 +75,10 @@ This is the standard mode of the module, refer to the official [Stages manual][4
 
 ### Slower free-running LFOs
 
-Fork:
-
-Stages behaves exactly like the standard segment generator mode, except that the slider range on free-running LFOs has been expanded to range from 8 minutes to C1 (the original high-end).
-CV input still tracks v/oct.
-Finally, ramp slider higher end has been increase from 32 seconds to about 58 seconds.
-
-Original:
-
 In this mode, Stages behaves exactly like the standard segment generator mode, except free-running LFOs (i.e. single green looping segments) are [eight time slower][5].
+This fork applies this 8x slowdown to each of the LFO ranges, so while the default is the same as in joeSeggiola's original, much slower LFOs may be achieved (16 minutes), while also mixing with faster LFOs.
+
+Note: Since LFO range configuration has been integrated in as a segment configuration, this mode may be removed to make space for other things.
 
 [5]: https://forum.mutable-instruments.net/t/stages/13643/54
 
