@@ -44,7 +44,7 @@ namespace stages {
 /* static */
 const MultiMode Ui::multimodes_[6] = {
   MULTI_MODE_STAGES, // Mode enabled by long pressing the left-most button
-  MULTI_MODE_STAGES,
+  MULTI_MODE_STAGES_TM,
   MULTI_MODE_STAGES_SLOW_LFO,
   MULTI_MODE_SIX_EG,
   MULTI_MODE_OUROBOROS,
@@ -137,7 +137,7 @@ void Ui::Poll() {
   chain_state_->set_local_switch_pressed(pressed);
 
   uint8_t changing_prop = 0;
-  if (multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO) {
+  if (multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO || multimode == MULTI_MODE_STAGES_TM) {
     bool dirty = false;
     uint16_t* seg_config = settings_->mutable_state()->segment_configuration;
     for (uint8_t i = 0; i < kNumChannels; ++i) {
@@ -289,8 +289,8 @@ void Ui::UpdateLEDs() {
       }
 
     } else if (
-      multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO ||
-      multimode == MULTI_MODE_OUROBOROS || multimode == MULTI_MODE_OUROBOROS_ALTERNATE
+      multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO || multimode == MULTI_MODE_STAGES_TM
+      || multimode == MULTI_MODE_OUROBOROS || multimode == MULTI_MODE_OUROBOROS_ALTERNATE
     ) {
 
       // LEDs update for original Stage modes (Stages, slow LFO variant and Ouroboros)

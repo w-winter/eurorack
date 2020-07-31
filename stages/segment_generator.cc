@@ -139,7 +139,11 @@ static void advance_tm(
     bool bipolar) {
   uint16_t sr = shift_register;
   uint16_t copied_bit = (sr << (steps - 1)) & (1 << 15);
-  uint16_t mutated = copied_bit ^ ((Random::GetFloat() < prob ) << 15);
+  // Ensure registers lock at extremes. Threshold established through trial and error, though
+  // depend on power supply and such.
+  // Tested at audio rates. Still allows you to let trickles of changes through if you want.
+  float p = prob < 0.001f ? 0.0f : prob > 0.999f ? 1.1f : prob;
+  uint16_t mutated = copied_bit ^ ((Random::GetFloat() < p) << 15);
   sr = (sr >> 1) | mutated;
   shift_register = sr;
   register_value = (float)(shift_register) / 65535.0f;
