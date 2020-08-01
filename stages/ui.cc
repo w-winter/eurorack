@@ -315,13 +315,20 @@ void Ui::UpdateLEDs() {
           configuration = configuration >> 4; // slide to ouroboros bits
         }
         uint8_t type = configuration & 0x3;
-        int brightness = fade_patterns[
-          (multimode == MULTI_MODE_OUROBOROS || multimode == MULTI_MODE_OUROBOROS_ALTERNATE)
-            ? (configuration & 0x4 ? 3 : 0)
-            : chain_state_->loop_status(i)
-          ];
-        if (chain_state_->loop_status(i) == ChainState::LOOP_STATUS_SELF && type == 0) {
-          brightness = lfo_patterns[configuration >> 8 & 0x3];
+        int brightness;
+        switch (multimode) {
+          case MULTI_MODE_OUROBOROS:
+          case MULTI_MODE_OUROBOROS_ALTERNATE:
+            brightness = fade_patterns[configuration & 0x4 ? 3 : 0];
+            break;
+          case MULTI_MODE_STAGES:
+          case MULTI_MODE_STAGES_SLOW_LFO:
+            brightness = chain_state_->loop_status(i) == ChainState::LOOP_STATUS_SELF && type == 0 ?
+              lfo_patterns[configuration >> 8 & 0x3] : fade_patterns[chain_state_->loop_status(i)];
+            break;
+          default:
+            brightness = 0.0f;
+            break; // We're not in one of these modes
         }
         LedColor color = palette_[type];
         if (settings_->state().color_blind == 1) {
