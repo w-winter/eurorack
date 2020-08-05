@@ -170,15 +170,12 @@ void Ui::Poll() {
         if (pot_when_pressed_[i] == -1.0f) {
           pot_when_pressed_[i] = pot;
         } else if(
-            changing_pot_prop_ >> i & 1 // in the middle of change, so keep changing
-            || fabs(pot_when_pressed_[i] - pot) > 0.1f) {
+            !(changing_pot_prop_ >> i & 1) // This is a toggle, so don't change if we've changed.
+            && fabs(pot_when_pressed_[i] - pot) > 0.1f) {
 
           changing_pot_prop_ |= 1 << i;
-          if (pot < 0.5f) {
-            seg_config[i] &= ~0b00001000;
-          } else {
-            seg_config[i] |= 0b00001000;
-          }
+          // toggle polarity
+          seg_config[i] ^= 0b00001000;
         }
         dirty = dirty || seg_config[i] != old_flags;
       } else {
