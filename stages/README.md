@@ -64,7 +64,7 @@ This fork adds the following features to this mode, none of which interfere with
 - **Re-trigger control for ramp (green) segments**. Hold button and wiggle the knob toggle re-trigger behavior. When re-trigger is disabled, the segment will flash dull red about 1/sec.
     - With re-trigger disabled, ramp segments will cause rising gates to be ignored, whereas normally rising gates cause an envelope to re-trigger from the beginning
     - For instance, if you make an AD envelope, and disable re-trigger on the A, you get classic Maths/Serge function generator behavior, allowing for weird clock dividers, subharmonic generators, and so forth.
-    - You can disable re-trigger *any* ramp segment; the D could be disabled instead of the A, so if the envelope receives a trigger after the A (but before it ends), the trigger will be ignored.
+    - You can disable re-trigger on *any* ramp segment; the D could be disabled instead of the A, so if the envelope receives a trigger after the A (but before it ends), the trigger will be ignored.
 - **Independent LFO (clocked and free) range control for each segment**;
     - For free-running, ranges are the same as Tides: 2 min to 2hz at the slowest, 0.125hz to 32hz (default and Stages' original range), and 8hz to about 2khz at the fastest. As with the original Stages and Tides, this range is further expandable by CV.
     - For clocked, ranges are: 1/8 to 1 in low, 1/4 to 4 by default (as in original Stages), 1 to 8x in high.
@@ -228,10 +228,6 @@ Fork:
     - Add bipolar mode for each segment type
     - Add re-trigger control for ramps
     - Change slow LFO mode to expand slider range
-    - [**bipolar-v1.0.0**][104]: Add bipolar modes, trigger control, and expanded slow LFO mode.
-
-[104]: https://github.com/qiemem/eurorack/releases/tag/1.0.0-beta
-
 
 Original:
 
