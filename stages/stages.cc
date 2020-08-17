@@ -253,7 +253,7 @@ void ProcessOuroboros(IOBuffer::Block* block, size_t size) {
         channel, channel_amplitude[channel] * amplitude > 0.001f, 1);
     const float f = f0 * ratio;
 
-    uint8_t waveshape = settings.state().segment_configuration[channel] >> 4;
+    uint8_t waveshape = (settings.state().segment_configuration[channel] & 0b01110000) >> 4;
     switch (waveshape) {
       case 0:
         oscillator[channel].Render<OSCILLATOR_SHAPE_SINE>(
