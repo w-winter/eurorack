@@ -148,9 +148,6 @@ class SegmentGenerator {
     int i = has_trigger ? 2 : 0;
     i += segment_configuration.loop ? 1 : 0;
     int type = int(segment_configuration.type);
-    if (settings_->state().multimode != MULTI_MODE_STAGES_ADVANCED) {
-      type %= 3;
-    }
     i += type * 4;
     process_fn_ = (settings_->state().multimode == MULTI_MODE_STAGES_ADVANCED
         ? advanced_process_fn_table_ : process_fn_table_)[i];

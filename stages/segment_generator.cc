@@ -821,8 +821,16 @@ SegmentGenerator::ProcessFn SegmentGenerator::process_fn_table_[16] = {
   // &SegmentGenerator::ProcessClockedSampleAndHold,
   &SegmentGenerator::ProcessTimedPulseGenerator,
   &SegmentGenerator::ProcessGateGenerator,
+
+  // These types can't normally be accessed, but are what random segments default
+  // to in basic mode.
+  &SegmentGenerator::ProcessZero,
+  &SegmentGenerator::ProcessZero,
+  &SegmentGenerator::ProcessZero,
+  &SegmentGenerator::ProcessZero,
 };
 
+// Seems really silly to have to separate tables with just a single difference but meh
 SegmentGenerator::ProcessFn SegmentGenerator::advanced_process_fn_table_[16] = {
   // RAMP
   &SegmentGenerator::ProcessZero,
@@ -842,7 +850,6 @@ SegmentGenerator::ProcessFn SegmentGenerator::advanced_process_fn_table_[16] = {
   // &SegmentGenerator::ProcessClockedSampleAndHold,
   &SegmentGenerator::ProcessTimedPulseGenerator,
   &SegmentGenerator::ProcessGateGenerator,
-
 
   // TURING
   &SegmentGenerator::ProcessRandom,
