@@ -99,11 +99,106 @@ void Ui::Poll() {
 
   MultiMode multimode = (MultiMode) settings_->state().multimode;
 
+
+  // Forward presses information to chain state
+  ChainState::ChannelBitmask pressed = 0;
+  //if (multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO) {
+    for (int i = 0; i < kNumSwitches; ++i) {
+      if (switches_.pressed(i)) {
+        pressed |= 1 << i;
+      }
+    }
+  //}
+  chain_state_->set_local_switch_pressed(pressed);
+
+  uint8_t changing_prop = 0;
+  bool dirty = false;
+  uint16_t* seg_config = settings_->mutable_state()->segment_configuration;
+  for (uint8_t i = 0; i < kNumChannels; ++i) {
+    if (switches_.pressed(i)) {
+      float slider = cv_reader_->lp_slider(i);
+      float pot = cv_reader_->lp_pot(i);
+
+      uint16_t old_flags = seg_config[i];
+
+      if (slider_when_pressed_[i] == -1.0f) {
+        slider_when_pressed_[i] = slider;
+      } else if (changing_slider_prop_ >> i & 1 // in the middle of change, so keep changing
+          || fabs(slider_when_pressed_[i] - slider) > 0.1f) {
+        changing_slider_prop_ |= 1 << i;
+
+        switch (multimode) {
+          case MULTI_MODE_STAGES:
+          case MULTI_MODE_STAGES_ADVANCED:
+          case MULTI_MODE_STAGES_SLOW_LFO:
+            if (chain_state_->loop_status(i) == ChainState::LOOP_STATUS_SELF
+                && (seg_config[i] & 0x3) == 0) { // Only LFOs responds
+
+              seg_config[i] &= ~0x0300; // reset range bits
+              if (slider < 0.25) {
+                seg_config[i] |= 0x0100;
+              } else if (slider > 0.75) {
+                seg_config[i] |= 0x0200;
+              }
+              // default middle range is 0, so no else
+            }
+            break;
+          case MULTI_MODE_OUROBOROS:
+          case MULTI_MODE_OUROBOROS_ALTERNATE:
+            seg_config[i] &= ~(0x0300 << 2); // reset range bits
+            if (slider < 0.25) {
+              seg_config[i] |= 0x0800;
+            } else if (slider < 0.75) { // high is default in ouroboros
+              seg_config[i] |= 0x0400;
+            }
+            break;
+          default:
+            break;
+        }
+      }
+
+      if (pot_when_pressed_[i] == -1.0f) {
+        pot_when_pressed_[i] = pot;
+      } else if(
+          !(changing_pot_prop_ >> i & 1) // This is a toggle, so don't change if we've changed.
+          && fabs(pot_when_pressed_[i] - pot) > 0.1f) {
+
+        changing_pot_prop_ |= 1 << i;
+        switch (multimode) {
+          case MULTI_MODE_STAGES:
+          case MULTI_MODE_STAGES_ADVANCED:
+          case MULTI_MODE_STAGES_SLOW_LFO:
+            // toggle polarity
+            seg_config[i] ^= 0b00001000;
+            break;
+          default:
+            break;
+        }
+      }
+      dirty = dirty || seg_config[i] != old_flags;
+    } else {
+      changing_pot_prop_ &= ~(1 << i);
+      changing_slider_prop_ &= ~(1 << i);
+      slider_when_pressed_[i] = -1.0f;
+      pot_when_pressed_[i] = -1.0f;
+    }
+  }
+  if (dirty) {
+    settings_->SaveState();
+  }
+  changing_prop = changing_pot_prop_ | changing_slider_prop_;
+  // We're changing prop parameters
+  if (changing_prop) {
+    chain_state_->SuspendSwitches();
+  }
+
   if (multimode == MULTI_MODE_OUROBOROS || multimode == MULTI_MODE_OUROBOROS_ALTERNATE) {
 
     State* s = settings_->mutable_state();
     for (int i = 0; i < kNumSwitches; ++i) {
-      if (switches_.pressed(i)) {
+      if (changing_prop) {
+        press_time_[i] = 0;
+      } else if (switches_.pressed(i)) {
         if (press_time_[i] != -1) {
           ++press_time_[i];
         }
@@ -125,75 +220,6 @@ void Ui::Poll() {
 
   }
 
-
-  // Forward presses information to chain state
-  ChainState::ChannelBitmask pressed = 0;
-  //if (multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO) {
-    for (int i = 0; i < kNumSwitches; ++i) {
-      if (switches_.pressed(i)) {
-        pressed |= 1 << i;
-      }
-    }
-  //}
-  chain_state_->set_local_switch_pressed(pressed);
-
-  uint8_t changing_prop = 0;
-  if (multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO || multimode == MULTI_MODE_STAGES_ADVANCED) {
-    bool dirty = false;
-    uint16_t* seg_config = settings_->mutable_state()->segment_configuration;
-    for (uint8_t i = 0; i < kNumChannels; ++i) {
-      if (switches_.pressed(i)) {
-        float slider = cv_reader_->lp_slider(i);
-        float pot = cv_reader_->lp_pot(i);
-
-        uint16_t old_flags = seg_config[i];
-
-        if (slider_when_pressed_[i] == -1.0f) {
-          slider_when_pressed_[i] = slider;
-        } else if (changing_slider_prop_ >> i & 1 // in the middle of change, so keep changing
-            || fabs(slider_when_pressed_[i] - slider) > 0.1f) {
-          changing_slider_prop_ |= 1 << i;
-
-          if (chain_state_->loop_status(i) == ChainState::LOOP_STATUS_SELF
-              && (seg_config[i] & 0x3) == 0) { // Only LFOs responds
-
-            seg_config[i] &= 0xfcff; // reset range bits
-            if (slider < 0.25) {
-              seg_config[i] |= 0x0100;
-            } else if (slider > 0.75) {
-              seg_config[i] |= 0x0200;
-            }
-            // default middle range is 0, so no else
-          }
-        }
-
-        if (pot_when_pressed_[i] == -1.0f) {
-          pot_when_pressed_[i] = pot;
-        } else if(
-            !(changing_pot_prop_ >> i & 1) // This is a toggle, so don't change if we've changed.
-            && fabs(pot_when_pressed_[i] - pot) > 0.1f) {
-
-          changing_pot_prop_ |= 1 << i;
-          // toggle polarity
-          seg_config[i] ^= 0b00001000;
-        }
-        dirty = dirty || seg_config[i] != old_flags;
-      } else {
-        changing_pot_prop_ &= ~(1 << i);
-        changing_slider_prop_ &= ~(1 << i);
-        slider_when_pressed_[i] = -1.0f;
-        pot_when_pressed_[i] = -1.0f;
-      }
-    }
-    if (dirty) {
-      settings_->SaveState();
-    }
-    changing_prop = changing_pot_prop_ | changing_slider_prop_;
-    // We're changing prop parameters
-    if (changing_prop) {
-      chain_state_->SuspendSwitches();
-    }
-  }
 
   // Detect very long presses for multi-mode toggle (using a negative counter)
   for (uint8_t i = 0; i < kNumSwitches; ++i) {

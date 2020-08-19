@@ -72,6 +72,11 @@ struct PersistentData {
 //
 // New:
 //  - b00001000 (0x08) -> bipolar bit
+//
+// Other new segment properties occupy the first 8 bits:
+//  - b00000011 (0x0300) ->  stages range
+//  - b00001100 (0x0600) ->  ouroboros range
+//
 
 #define is_bipolar(seg_config) seg_config & 0x08
 

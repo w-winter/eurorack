@@ -290,7 +290,7 @@ void ChainState::Configure(SegmentGenerator* segment_generator, Settings* settin
           ++num_internal_bindings_;
           // Note: this will only have an effect on LFOs
           configuration[num_segments].range = segment::FreqRange(
-              settings->state().segment_configuration[i + num_segments] >> 8 & 0x03);
+              (settings->state().segment_configuration[i + num_segments] >> 8) & 0x03);
         } else {
           // Bind remote CV/pot to this segment's parameters.
           binding_[num_bindings_].source = channel;

@@ -219,7 +219,13 @@ float previous_amplitude[kNumChannels];
 void ProcessOuroboros(IOBuffer::Block* block, size_t size) {
   const float coarse = (block->cv_slider[0] - 0.5f) * 96.0f;
   const float fine = block->pot[0] * 2.0f - 1.0f;
-  const float f0 = SemitonesToRatio(coarse + fine) * 261.6255f / kSampleRate;
+  const uint8_t range = (settings.state().segment_configuration[0] >> 10) & 0x3;
+  const float range_mult =
+    (range == 0x01) ? 1.0f / 128.0f :
+    (range == 0x02) ? 1.0f / (128.0f * 16.0f) :
+    1.0f;
+  const bool lfo = range != 0x00;
+  const float f0 = SemitonesToRatio(coarse + fine) * 261.6255f / kSampleRate * range_mult;
 
   std::fill(&sum[0], &sum[size], 0.0f);
 
@@ -248,6 +254,10 @@ void ProcessOuroboros(IOBuffer::Block* block, size_t size) {
       channel_amplitude[channel] = 1.0f;
     } else {
       channel_amplitude[channel] *= 0.999f;
+    }
+    // For some reason, trigger can be true when not input is patched.
+    if (block->input_patched[channel] && trigger && lfo) {
+      oscillator[channel].Init();
     }
     ui.set_slider_led(
         channel, channel_amplitude[channel] * amplitude > 0.001f, 1);
@@ -292,9 +302,11 @@ void ProcessOuroboros(IOBuffer::Block* block, size_t size) {
     }
 
     const float gain = channel == 0 ? 0.2f : 0.66f;
+    // Don't bother interpolating over lfo amplitude as we don't apply pinging to the single LFO outs
+    const float lfo_amp = lfo ? amplitude : 1.0f;
     const float* source = channel == 0 ? sum : this_channel;
     for (size_t i = 0; i < size; ++i) {
-      block->output[channel][i] = settings.dac_code(channel, source[i] * gain);
+      block->output[channel][i] = settings.dac_code(channel, source[i] * gain * lfo_amp);
     }
   }
 }
