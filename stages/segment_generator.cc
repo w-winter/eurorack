@@ -353,36 +353,40 @@ void SegmentGenerator::ProcessClockedSampleAndHold(
   }
 }
 
+inline Ratio calc_ratio(int n, int d) {
+  // I honestly don't know why the - 1e-06f is here. I just noticed that all
+  // the original ratios were that much lower than expected.
+  return (Ratio) { float(n) / float(d) - 1e-06f, d };
+}
+
 Ratio divider_ratios[] = {
-  { 0.249999f, 4 },
-  { 0.333333f, 3 },
-  { 0.499999f, 2 },
-  { 0.999999f, 1 },
-  { 1.999999f, 1 },
-  { 2.999999f, 1 },
-  { 3.999999f, 1 },
+  calc_ratio(1, 4),
+  calc_ratio(1, 3),
+  calc_ratio(1, 2),
+  calc_ratio(1, 1),
+  calc_ratio(2, 1),
+  calc_ratio(3, 1),
+  calc_ratio(4, 1),
 };
 
 Ratio divider_ratios_slow[] = {
-  { 0.124999f, 8 },
-  { 0.142856f, 7 },
-  { 0.166666f, 6 },
-  { 0.199999f, 5 },
-  { 0.249999f, 4 },
-  { 0.333333f, 3 },
-  { 0.499999f, 2 },
-  { 0.999999f, 1 },
+  calc_ratio(1, 64),
+  calc_ratio(1, 32),
+  calc_ratio(1, 16),
+  calc_ratio(1, 8),
+  calc_ratio(1, 4),
+  calc_ratio(1, 2),
+  calc_ratio(1, 1),
 };
 
 Ratio divider_ratios_fast[] = {
-  { 0.999999f, 1 },
-  { 1.999999f, 1 },
-  { 2.999999f, 1 },
-  { 3.999999f, 1 },
-  { 4.999999f, 1 },
-  { 5.999999f, 1 },
-  { 6.999999f, 1 },
-  { 7.999999f, 1 },
+  calc_ratio(1, 1),
+  calc_ratio(2, 1),
+  calc_ratio(4, 1),
+  calc_ratio(8, 1),
+  calc_ratio(16, 1),
+  calc_ratio(32, 1),
+  calc_ratio(64, 1),
 };
 
 void SegmentGenerator::ProcessTapLFO(
@@ -396,11 +400,11 @@ void SegmentGenerator::ProcessTapLFO(
       break;
     case segment::RANGE_SLOW:
       r = ramp_division_quantizer_.Lookup(
-          divider_ratios_slow, parameters_[0].primary * 1.03f, 8);
+          divider_ratios_slow, parameters_[0].primary * 1.03f, 7);
       break;
     case segment::RANGE_FAST:
       r = ramp_division_quantizer_.Lookup(
-          divider_ratios_fast, parameters_[0].primary * 1.03f, 8);
+          divider_ratios_fast, parameters_[0].primary * 1.03f, 7);
       break;
   }
 
