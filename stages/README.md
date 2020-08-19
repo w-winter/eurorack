@@ -20,6 +20,8 @@ This fork also adds a new mode, [advanced segment generator](#advanced-segment-g
     - Logistic map
 - Adds support for track and hold
 
+Finally, this fork allows you to control the frequency range of the harmonic oscillator mode (aka ouroboros mode; the Stages easter egg), giving access to 5 harmonically related LFOs.
+
 ⚠️ **Warning:** This firmware has **not** been tested on multiple [chained][1] modules. It could behave strangely if chained. Obviously I'm not responsible for any issue you might encounter.
 
 [1]: https://mutable-instruments.net/modules/stages/manual/#chaining-modules
@@ -31,9 +33,6 @@ Download and installation
 📦 Download the **[latest WAV file here][2]** and follow the [firmware update procedure here][3]. Source code is available [here][8]. joeSeggiola's original source code is available [here][9].
 
 IMPORTANT: Installation will clear the module settings if coming from a different firmware. Right after updating from an earlier version of this fork, the stock Stages firmware or joeSeggiola's version, Stages may continuously cycle between green, orange, and red LEDs. Turning the module off and on again should restore functionality. This happens because this fork expands the amount of data stored for each segment, so will be incompatible with the settings stored from a different firmware. If you encounter problems, please let me know, either in a GitHub issue or otherwise.
-
-IMPORTANT WHEN INSTALLING A DIFFERENT FIRMWARE: If you install a different firmware after this one, make sure that no segments are on the random segment type, as your module could continuously restart after installation if you a random segment was present.
-If this does happen, don't panic: just re-install this firmware, go and change the random segments to something else, and try again.
 
 [2]: https://github.com/qiemem/eurorack/releases/latest
 [3]: https://mutable-instruments.net/modules/stages/manual/#firmware
@@ -170,6 +169,8 @@ This mode was normally accessible on the non-modified firmware by [chaining][1] 
 
 [9]: https://github.com/pichenettes
 
+This fork further adds frequency range controls to this mode, allowing it to be used as a set of interrelated LFOs.
+
 The left-most column of the module acts a little different from the others:
 
 - Slider is for **coarse tuning** of the main oscillator
@@ -192,6 +193,26 @@ The **buttons** cycle through different waveform for each harmonic, including th
 - Flashing orange: square with **small pulse width**
 - Flashing red: square with **smaller pulse width**
 
+To change the frequency range of this mode, hold the leftmost button and move the leftmost slider to the top, middle, or bottom (same as adjusting LFO range in segment generator mode).
+The ranges are as follows:
+
+- Top: 16hz to ~4khz (C0 to C8); the default range
+- Middle: 0.125hz to 32hz
+- Bottom: 2 min to 2hz
+
+The middle and bottom ranges are considered "LFO" ranges.
+When operating in an LFO range, this mode has a few adjusted behaviors.
+
+- Volume control now affects the amplitude of the segments individual output in addition to its amplitude in the mix output. In audio range, volume only affects amplitude in the mix output. This gives you the ability to attenuate your LFOs.
+- A rising gate on a segment's gate input will reset the phase of the LFO. It will still "strum" the LFO in the mix output (but not the individual output).
+
+Tip: To remove an LFO from the mix, but continue to use its individual output, plug a dummy cable into its gate. This is especially useful for removing the "root" LFO from the mix (by plugging a cable into the leftmost gate input).
+
+Note that, as in the original Stages' harmonic oscillator mode, it is possible to set frequencies in between two harmonics.
+This can be really handy for creating LFOs with interesting phasing, but may be confusing at first if you're expecting the LFOs to stay exactly in sync.
+The frequencies will "snap" to defined harmonics, so it shouldn't be too hard to get things to stay in time.
+
+The harmonics, from high to low are 8x, 6x, 5x, 4x, 3x, 2x, 1.5x, 1/2x, 1/4x.
 
 ### Harmonic oscillator with alternate controls
 
@@ -200,7 +221,9 @@ Same as harmonic oscillator, but controls for each partial (columns 2 to 6) are 
 - Pot controls the **volume** in the mix
 - Slider and CV input sets the **harmonic ratio** in relation to the root pitch
 
-This way is possibile to modulate (and therefore sequence) the harmonics with external CV.
+This way it is possible to modulate (and therefore sequence) the harmonics with external CV.
+
+The frequency range in this mode can be controlled just as with the normal harmonic oscillator mode (hold leftmost button and move leftmost slider).
 
 
 Changelog

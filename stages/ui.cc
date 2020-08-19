@@ -111,6 +111,8 @@ void Ui::Poll() {
   //}
   chain_state_->set_local_switch_pressed(pressed);
 
+  // TODO: This is gross. Each mode should have its own UI handler, with a
+  // generic system for changing segment properties that each can leverage.
   uint8_t changing_prop = 0;
   bool dirty = false;
   uint16_t* seg_config = settings_->mutable_state()->segment_configuration;
@@ -217,7 +219,6 @@ void Ui::Poll() {
         press_time_[i] = 0;
       }
     }
-
   }
 
 
@@ -235,7 +236,6 @@ void Ui::Poll() {
       press_time_multimode_toggle_[i] = 0;
     }
   }
-
 }
 
 void Ui::MultiModeToggle(const uint8_t i) {
