@@ -53,20 +53,25 @@ inline bool IsWithinTolerance(float x, float y, float error) {
 
 void RampExtractor::Init(float sample_rate, float max_frequency) {
   max_frequency_ = max_frequency;
-  min_period_ = 1.0f / max_frequency_;
-  min_period_hysteresis_ = min_period_;
+  audio_rate_period_ = 1.0f / (100.0f / sample_rate);
+  audio_rate_period_hysteresis_ = audio_rate_period_;
   sample_rate_ = sample_rate;
-  reset_interval_ = 5.0f * sample_rate_;
+  Reset();
+}
 
+void RampExtractor::Reset() {
+  audio_rate_ = false;
   train_phase_ = 0.0f;
-  frequency_ = 0.0f;
+  target_frequency_ = frequency_ = 0.0f;
+  lp_coefficient_ = 0.5f;
   max_ramp_value_ = 1.0f;
   f_ratio_ = 1.0f;
   reset_counter_ = 1;
+  reset_interval_ = 3.0f * sample_rate_;
 
   Pulse p;
-  p.on_duration = uint32_t(sample_rate * 0.25f);
-  p.total_duration = uint32_t(sample_rate * 0.5f);
+  p.on_duration = uint32_t(sample_rate_ * 0.25f);
+  p.total_duration = uint32_t(sample_rate_ * 0.5f);
   p.pulse_width = 0.5f;
 
   fill(&history_[0], &history_[kHistorySize], p);
@@ -77,7 +82,7 @@ void RampExtractor::Init(float sample_rate, float max_frequency) {
   average_pulse_width_ = 0.0f;
   fill(&prediction_error_[0], &prediction_error_[kMaxPatternPeriod + 1], 50.0f);
   fill(&predicted_period_[0], &predicted_period_[kMaxPatternPeriod + 1],
-       sample_rate * 0.5f);
+       sample_rate_ * 0.5f);
   prediction_error_[0] = 0.0f;
 }
 
@@ -142,37 +147,53 @@ void RampExtractor::Process(
         frequency = 1.0f / PredictNextPeriod();
         reset_interval_ = 4.0f * p.total_duration;
       } else {
-        if (float(p.total_duration) <= min_period_hysteresis_) {
-          min_period_hysteresis_ = min_period_ * 1.05f;
-          frequency = 1.0f / (p.total_duration);
+        float period = float(p.total_duration);
+        if (period <= audio_rate_period_hysteresis_) {
+          audio_rate_ = true;
+          audio_rate_period_hysteresis_ = audio_rate_period_ * 1.1f;
+
           average_pulse_width_ = 0.0f;
+
+          bool no_glide = f_ratio_ != ratio.ratio;
+          f_ratio_ = ratio.ratio;
+
+          frequency = 1.0f / period;
+          target_frequency_ = std::min(f_ratio_ * frequency, max_frequency_);
+
+          float up_tolerance = (1.02f + 2.0f * frequency) * frequency_;
+          float down_tolerance = (0.98f - 2.0f * frequency) * frequency_;
+          no_glide |= target_frequency_ > up_tolerance ||
+              target_frequency_ < down_tolerance;
+          lp_coefficient_ = no_glide ? 1.0f : period * 0.00001f;
         } else {
+          audio_rate_ = false;
+          audio_rate_period_hysteresis_ = audio_rate_period_;
+
           // Compute the pulse width of the previous pulse, and check if the
           // PW has been consistent over the past pulses.
-          min_period_hysteresis_ = min_period_;
           p.pulse_width = static_cast<float>(p.on_duration) / \
               static_cast<float>(p.total_duration);
           average_pulse_width_ = ComputeAveragePulseWidth(kPulseWidthTolerance);
           if (p.on_duration < 32) {
             average_pulse_width_ = 0.0f;
           }
-          frequency = 1.0f / PredictNextPeriod();
+          frequency_ = target_frequency_ = 1.0f / PredictNextPeriod();
+          // Reset the phase if necessary, according to the divider ratio.
+          --reset_counter_;
+          if (!reset_counter_) {
+            train_phase = 0.0f;
+            reset_counter_ = ratio.q;
+            f_ratio_ = ratio.ratio;
+            max_train_phase = static_cast<float>(ratio.q);
+          } else {
+            float expected = max_train_phase - static_cast<float>(reset_counter_);
+            float warp =  expected - train_phase + 1.0f;
+            frequency_ *= max(warp, 0.01f);
+          }
         }
 
-        // Reset the phase if necessary, according to the divider ratio.
-        --reset_counter_;
-        if (!reset_counter_) {
-          train_phase = 0.0f;
-          reset_counter_ = ratio.q;
-          f_ratio_ = ratio.ratio;
-          max_train_phase = static_cast<float>(ratio.q);
-        } else {
-          float expected = max_train_phase - static_cast<float>(reset_counter_);
-          float warp =  expected - train_phase + 1.0f;
-          frequency *= max(warp, 0.01f);
-        }
         reset_interval_ = static_cast<uint32_t>(
-            std::max(4.0f / frequency, sample_rate_ * 5.0f));
+            std::max(4.0f / target_frequency_, sample_rate_ * 3.0f));
         current_pulse_ = (current_pulse_ + 1) % kHistorySize;
       }
       history_[current_pulse_].on_duration = 0;
@@ -190,20 +211,29 @@ void RampExtractor::Process(
       float t_on = static_cast<float>(history_[current_pulse_].on_duration);
       float next = max_train_phase - static_cast<float>(reset_counter_) + 1.0f;
       float pw = average_pulse_width_;
-      frequency = max((next - train_phase), 0.0f) * pw / ((1.0f - pw) * t_on);
+      frequency_ = max((next - train_phase), 0.0f) * pw / ((1.0f - pw) * t_on);
     }
 
-    train_phase += frequency;
-    if (train_phase >= max_train_phase) {
-      train_phase = max_train_phase;
-    }
+    if (audio_rate_) {
+      ONE_POLE(frequency_, target_frequency_, lp_coefficient_);
+      train_phase += frequency_;
+      if (train_phase >= 1.0f) {
+        train_phase -= 1.0f;
+      }
+      *ramp++ = train_phase;
+    } else {
+      train_phase += frequency_;
+      if (train_phase >= max_train_phase) {
+        train_phase = max_train_phase;
+      }
 
-    float phase = train_phase * f_ratio_;
-    phase -= static_cast<float>(static_cast<int32_t>(phase));
-    *ramp++ = phase;
+      float phase = train_phase * f_ratio_;
+      phase -= static_cast<float>(static_cast<int32_t>(phase));
+      *ramp++ = phase;
+    }
   }
 
-  frequency_ = frequency;
+  //frequency_ = frequency;
   train_phase_ = train_phase;
   max_train_phase_ = max_train_phase;
 }

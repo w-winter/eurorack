@@ -61,6 +61,7 @@ class RampExtractor {
       const stmlib::GateFlags* gate_flags,
       float* ramp,
       size_t size);
+  void Reset();
 
  private:
   struct Pulse {
@@ -85,6 +86,9 @@ class RampExtractor {
 
   float train_phase_;
   float frequency_;
+  float target_frequency_;
+
+  float lp_coefficient_;
 
   uint32_t reset_interval_;
   float sample_rate_;
@@ -94,8 +98,9 @@ class RampExtractor {
   float max_train_phase_;
 
   float max_frequency_;
-  float min_period_;
-  float min_period_hysteresis_;
+  float audio_rate_period_;
+  float audio_rate_period_hysteresis_;
+  bool audio_rate_;
 
   DISALLOW_COPY_AND_ASSIGN(RampExtractor);
 };

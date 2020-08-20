@@ -8,7 +8,7 @@ This fork further adds:
 - Control over each segment's polarity, allowing for, for instance, bipolar LFOs; hold button and wiggle knob to toggle
 - Control over each LFO segments frequency range; hold button and move slider to top, middle, or bottom to select range
 - Control over ramp segments' re-trigger behavior; hold button and wiggle knob to toggle
-- Arbitrarily slow clocked LFOs
+- Arbitrarily slow clocked LFOs and improved audio-rate clocked LFOs
 
 See segment generator mode's [usage instructions](#segment-generator) for details. None of these features interfere with the normal workflow of Stages.
 
@@ -68,7 +68,8 @@ This fork adds the following features to this mode, none of which interfere with
     - For free-running, ranges are the same as Tides: 2 min to 2hz at the slowest, 0.125hz to 32hz (default and Stages' original range), and 8hz to about 2khz at the fastest. As with the original Stages and Tides, this range is further expandable by CV.
     - For clocked, ranges are: 1/8 to 1 in low, 1/4 to 4 by default (as in original Stages), 1 to 8x in high.
     - Hold the segment's button and move its slider to change LFO range. LFO range is indicated by the speed of the mode indicator LED's cycle. Note: artifacts appear at high frequencies depending on wave shape. Frequency has been capped at 7khz (A8) as the module acts very strangely after that...
-- **Arbitrarily slow clocked LFOs**. Previously, clocked LFOs in Stages had a reset timeout at about 5 seconds; now, the reset timeout adapts to the clock cycle, allowing for arbitrarily slow clocked LFOs (logic taken from Tides 2).
+- **Arbitrarily slow clocked LFOs**. Previously, clocked LFOs in Stages had a reset timeout at about 5 seconds; now, the reset timeout adapts to the clock cycle, allowing for arbitrarily slow clocked LFOs (logic taken from Marbles and Tides 2). The PLL tracking will now also reset when the segment type or frequency range changes.
+- **Improved audio-rate clocked LFOs**. Previously, clocked LFOs used a PLL algorithm designed for low frequency clocks and rhythms. While this allows LFOs to adapt to more complex gate sequences, it introduces artifacts at audio rates. Clocked LFOs will now detect when they're receiving an audio rate signal and switch to an algorithm tuned to audio rates, allowing them to create harmonics of other voices. Logic adapted from Marbles and Tides 2.
 
 For any settings that requires you hold the button to change, moving the slider or knob will disable loop mode changes or multi-mode changes (and disable the normal function of the pot), so you don't need to worry about holding the button for too long.
 Also changes to those settings won't occur unless you move it's respective control; thus, you won't accidentally change the range on an LFO while changing it's polarity unless you move the slider.

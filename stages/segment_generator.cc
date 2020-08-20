@@ -408,6 +408,10 @@ void SegmentGenerator::ProcessTapLFO(
       break;
   }
 
+  if (reset_ramp_extractor_) {
+    ramp_extractor_.Reset();
+    reset_ramp_extractor_ = false;
+  }
   ramp_extractor_.Process(r, gate_flags, ramp, size);
   for (size_t i = 0; i < size; ++i) {
     out[i].phase = ramp[i];

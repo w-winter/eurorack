@@ -142,15 +142,21 @@ class SegmentGenerator {
   inline void ConfigureSingleSegment(
       bool has_trigger,
       segment::Configuration segment_configuration) {
-    segments_[0].range = segment_configuration.range;
-    segments_[0].bipolar = segment_configuration.bipolar;
-    segments_[0].retrig = (segment_configuration.type != segment::TYPE_RAMP) || !segment_configuration.bipolar;
+
     int i = has_trigger ? 2 : 0;
     i += segment_configuration.loop ? 1 : 0;
     int type = int(segment_configuration.type);
     i += type * 4;
-    process_fn_ = (settings_->state().multimode == MULTI_MODE_STAGES_ADVANCED
+    ProcessFn new_process_fn = (settings_->state().multimode == MULTI_MODE_STAGES_ADVANCED
         ? advanced_process_fn_table_ : process_fn_table_)[i];
+    if (new_process_fn != process_fn_
+        || segments_[0].range != segment_configuration.range) {
+      reset_ramp_extractor_ = true;
+    }
+    process_fn_ = new_process_fn;
+    segments_[0].range = segment_configuration.range;
+    segments_[0].bipolar = segment_configuration.bipolar;
+    segments_[0].retrig = (segment_configuration.type != segment::TYPE_RAMP) || !segment_configuration.bipolar;
     num_segments_ = 1;
   }
 
@@ -219,6 +225,7 @@ class SegmentGenerator {
   ProcessFn process_fn_;
 
   RampExtractor ramp_extractor_;
+  bool reset_ramp_extractor_;
   stmlib::HysteresisQuantizer ramp_division_quantizer_;
 
   Segment segments_[kMaxNumSegments + 1];  // There's a sentinel!
