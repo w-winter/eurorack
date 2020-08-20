@@ -39,6 +39,61 @@ IMPORTANT: Installation will clear the module settings if coming from a differen
 [8]: https://github.com/qiemem/eurorack/tree/stages-multi/stages
 [9]: https://github.com/joeSeggiola/eurorack/tree/stages-multi/stages
 
+Cheatsheet
+---
+
+- Button + slider: Hold button and move slider to top, middle, or bottom to change value
+- Button + knob: Hold button and wiggle knob to toggle
+
+Control overview (modes in order of corresponding button; hold button for 5 seconds to switch):
+| Mode             | Button   | Hold button 1s | Slider + CV        | Knob               | Button + slider | Button + knob      |
+| ---              | ---      | ---            | ---                | ---                | ---             | ---                |
+| Segment gen      | Seg type | Toggle looping | Time / level       | Shape / time       | LFO range (G)   | Polarity / re-trig |
+| Adv segment gen  | Seg type | Toggle looping | Time / level       | Shape / time       | LFO range (G)   | Polarity / re-trig |
+| Slow LFO         | Seg type | Toggle looping | Time / level       | Shape / time       | LFO range (G)   | Polarity / re-trig |
+| DAHDSR           | Gate     | -              | Time / level (5)   | Shape (246)        | -               | -                  |
+| Harmonic osc     | Shape    | Toggle shapes  | Freq (1) / amp     | Tune (1) / harmony | Freq range (1)  | -                  |
+| Alt harmonic osc | Shape    | Toggle shapes  | Freq (1) / harmony | Tune (1) / amp     | Freq range (1)  | -                  |
+
+Single segment types in segment generator modes (* = advanced mode; all other behaviors are unchanged from original Stages):
+| Segment type          | Behavior        | Slider + CV       | Knob        | Button + slider | Button + knob       |
+| ---                   | ---             | ---               | ---         | ---             | -                   |
+| Green                 | Zero            | -                 | -           | -               | -                   |
+| Green looping         | LFO             | Freq              | Shape       | Freq range      | Polarity            |
+| Green gated           | Decay           | Time              | Shape       | -               | Re-trigger behavior |
+| Green gated, looping  | Clocked LFO     | Div/mul           | Shape       | Div/mul range   | Polarity            |
+| Yellow                | Slew            | Offset            | Time        | -               | Slider polarity     |
+| Yellow looping        | Slew            | Offset            | Time        | -               | Slider polarity     |
+| Yellow gated          | S&H             | Offset            | Slew        | -               | Slider polarity     |
+| Yellow gated, looping | S&H / T&H*      | Offset            | Slew        | -               | Slider polarity     |
+| Red                   | Delay           | Offset            | Time        | -               | Slider polarity     |
+| Red looping           | Delay           | Offset            | Time        | -               | Slider polarity     |
+| Red gated             | Timed pulse     | Offset            | Pulse width | -               | Slider polarity     |
+| Red gated, looping    | Gate generator  | Offset            | _           | -               | Slider polarity     |
+| GR*                   | Uniform random  | Freq              | Slew        | -               | Polarity            |
+| GR looping*           | Uniform random  | Freq              | Slew        | -               | Polarity            |
+| GR gated*             | Turing machine  | Prob of bit flip  | Steps       | -               | Polarity            |
+| GR gated, looping*    | Logistic map    | Reproduction rate | Slew        | -               | Polarity            |
+
+Segment types in groups (only green~red and button+knob are different from original Stages):
+| Segment type | Behavior       | Slider + CV      | Knob  | Button + knob       |
+| ---          | ---            | ---              | ---   | ---                 |
+| Green        | Ramp           | Time             | Shape | Re-trigger behavior |
+| Yellow       | Step           | Offset           | Slew  | Slider polarity     |
+| Red          | Hold           | Offset           | Time  | Slider polarity     |
+| Red looping  | Sustain        | Offset           | -     | Slider polarity     |
+| Green~red*   | Turing machine | Prob of bit flip | Steps | Polarity            |
+
+Segment generator LED codes:
+- Blink dim red 1/sec: Bipolar / no re-trigger (for ramp)
+- Oscillations between color and black: Looping mode
+- Speed of green oscillations: LFO freq range
+- Oscillation between green and red: Random segment type in advanced mode
+
+Harmonic oscillator shapes:
+- Normal: Sine (green), triangle (yellow), square (red)
+- Looping: Ramp (green), small pulse (yellow), tiny pulse (red)
+
 Multi-mode usage
 -----
 
@@ -66,7 +121,10 @@ This fork adds the following features to this mode, none of which interfere with
     - You can disable re-trigger on *any* ramp segment; the D could be disabled instead of the A, so if the envelope receives a trigger after the A (but before it ends), the trigger will be ignored.
 - **Independent LFO (clocked and free) range control for each segment**;
     - For free-running, ranges are the same as Tides: 2 min to 2hz at the slowest, 0.125hz to 32hz (default and Stages' original range), and 8hz to about 2khz at the fastest. As with the original Stages and Tides, this range is further expandable by CV.
-    - For clocked, ranges are: 1/8 to 1 in low, 1/4 to 4 by default (as in original Stages), 1 to 8x in high.
+    - For clocked LFOs, clock multiplications are:
+	- Slow: 1/64, 1/32, 1/16, 1/8, 1/4, 1/2, 1
+	- Medium: 1/4, 1/3, 1/2, 1, 2, 3, 4 (default; original Stages' behavior)
+	- Fast: 1, 2, 4, 8, 16, 32, 64
     - Hold the segment's button and move its slider to change LFO range. LFO range is indicated by the speed of the mode indicator LED's cycle. Note: artifacts appear at high frequencies depending on wave shape. Frequency has been capped at 7khz (A8) as the module acts very strangely after that...
 - **Arbitrarily slow clocked LFOs**. Previously, clocked LFOs in Stages had a reset timeout at about 5 seconds; now, the reset timeout adapts to the clock cycle, allowing for arbitrarily slow clocked LFOs (logic taken from Marbles and Tides 2). The PLL tracking will now also reset when the segment type or frequency range changes.
 - **Improved audio-rate clocked LFOs**. Previously, clocked LFOs used a PLL algorithm designed for low frequency clocks and rhythms. While this allows LFOs to adapt to more complex gate sequences, it introduces artifacts at audio rates. Clocked LFOs will now detect when they're receiving an audio rate signal and switch to an algorithm tuned to audio rates, allowing them to create harmonics of other voices. Logic adapted from Marbles and Tides 2.
