@@ -214,6 +214,7 @@ class SegmentGenerator {
   float half_;
   float one_;
 
+  int previous_segment_;
   int active_segment_;
   int monitored_segment_;
   int retrig_delay_;

@@ -162,6 +162,11 @@ void SegmentGenerator::ProcessMultiSegment(
   while (size--) {
     const Segment& segment = segments_[active_segment_];
 
+    // TODO I think this can be moved outside of this loop
+    if (!segment.start) {
+      start = *segments_[previous_segment_].end;
+    }
+
     if (segment.time) {
       phase += RateToFrequency(*segment.time);
     }
@@ -179,6 +184,8 @@ void SegmentGenerator::ProcessMultiSegment(
 
     // Decide what to do next.
     int go_to_segment = -1;
+    // It would probably be better to do retrig with go_to_segments, but that
+    // makes single decay segments harder.
     if ((*gate_flags & GATE_FLAG_RISING) && segment.retrig) {
       go_to_segment = segment.if_rising;
     } else if (*gate_flags & GATE_FLAG_FALLING) {
@@ -202,6 +209,7 @@ void SegmentGenerator::ProcessMultiSegment(
       start = destination.start
           ? *destination.start
           : (go_to_segment == active_segment_ ? start : value);
+      previous_segment_ = active_segment_;
       active_segment_ = go_to_segment;
     }
 
@@ -806,7 +814,7 @@ void SegmentGenerator::Configure(
   sentinel->if_complete = loop_end == last_segment ? 0 : -1;
 
   // After changing the state of the module, we go to the sentinel.
-  active_segment_ = num_segments;
+  previous_segment_ = active_segment_ = num_segments;
 }
 
 /* static */
