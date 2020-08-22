@@ -161,10 +161,24 @@ void SegmentGenerator::ProcessMultiSegment(
 
   while (size--) {
     const Segment& segment = segments_[active_segment_];
+    const Segment& previous = segments_[previous_segment_];
 
-    // TODO I think this can be moved outside of this loop
-    if (!segment.start) {
-      start = *segments_[previous_segment_].end;
+    // Having phase means segment is trackable
+    // If previous.start == previous.end and segment.end = previous.start we
+    // can end up with start and end tracking the same value, which would do
+    // nothing.
+    if (!segment.start && previous.phase && segment.end != previous.end) {
+
+
+      // Just setting start to the previous segment's end would cause a jump
+      // when, e.g., going from a slewed step to a ramp before the step
+      // finishes. In the case where the current segment does not have a start
+      // it's set to the last value of the previous segment. Thus, slewing
+      // between that and the end tracks what that segment would have done.
+      ONE_POLE(
+          start,
+          *segments_[previous_segment_].end,
+          PortamentoRateToLPCoefficient(*segments_[previous_segment_].portamento));
     }
 
     if (segment.time) {
@@ -208,8 +222,10 @@ void SegmentGenerator::ProcessMultiSegment(
       const Segment& destination = segments_[go_to_segment];
       start = destination.start
           ? *destination.start
-          : (go_to_segment == active_segment_ ? start : value);
-      previous_segment_ = active_segment_;
+          : (go_to_segment == active_segment_ ? start : lp);
+      if (go_to_segment != active_segment_) {
+        previous_segment_ = active_segment_;
+      }
       active_segment_ = go_to_segment;
     }
 
