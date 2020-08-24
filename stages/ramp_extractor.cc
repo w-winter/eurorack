@@ -127,10 +127,19 @@ void RampExtractor::Process(
     const GateFlags* gate_flags,
     float* ramp,
     size_t size) {
-  float frequency = frequency_;
   float train_phase = train_phase_;
   float max_train_phase = max_train_phase_;
 
+  // TODO: There's some stuff I'm not crazy about in this code but don't have
+  // time to fix right now:
+  // - frequency_ and target_frequency_ mean different things at audio rates
+  //     vs low frequency rates
+  // - Originally, the rate of the clock determined both which PLL alg to apply
+  //     and whether or not to apply lpf to the target frequency. Instead, the
+  //     rate (post-ratio) of the target frequency should determine whether it
+  //     needs lpf. Thus, a sub-audio clock with ratio that brings it to audio
+  //     sounds shitty as it doesn't go through lpf. As a workaround, I'm
+  //     picking I'm going audio-rate if either frequency could be audio-rate.
   while (size--) {
     GateFlags flags = *gate_flags++;
 
@@ -144,11 +153,13 @@ void RampExtractor::Process(
         reset_counter_ = ratio.q;
         f_ratio_ = ratio.ratio;
         max_train_phase = static_cast<float>(ratio.q);
-        frequency = 1.0f / PredictNextPeriod();
         reset_interval_ = 4.0f * p.total_duration;
       } else {
         float period = float(p.total_duration);
-        if (period <= audio_rate_period_hysteresis_) {
+        float ar_period = std::max(
+            audio_rate_period_hysteresis_ * ratio.ratio,
+            audio_rate_period_hysteresis_);
+        if (period <= ar_period) {
           audio_rate_ = true;
           audio_rate_period_hysteresis_ = audio_rate_period_ * 1.1f;
 
@@ -157,7 +168,7 @@ void RampExtractor::Process(
           bool no_glide = f_ratio_ != ratio.ratio;
           f_ratio_ = ratio.ratio;
 
-          frequency = 1.0f / period;
+          float frequency = 1.0f / period;
           target_frequency_ = std::min(f_ratio_ * frequency, max_frequency_);
 
           float up_tolerance = (1.02f + 2.0f * frequency) * frequency_;
@@ -233,7 +244,6 @@ void RampExtractor::Process(
     }
   }
 
-  //frequency_ = frequency;
   train_phase_ = train_phase;
   max_train_phase_ = max_train_phase;
 }
