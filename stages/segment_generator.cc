@@ -28,6 +28,7 @@
 
 #include "stages/segment_generator.h"
 
+#include "stages/oscillator.h"
 #include "stages/settings.h"
 #include "stmlib/dsp/dsp.h"
 #include "stmlib/dsp/parameter_interpolator.h"
@@ -96,9 +97,7 @@ void SegmentGenerator::Init(Settings* settings) {
   p.secondary = 0.0f;
   fill(&parameters_[0], &parameters_[kMaxNumSegments], p);
 
-  ramp_extractor_.Init(
-      kSampleRate,
-      1000.0f / kSampleRate);
+  ramp_extractor_.Init(kSampleRate, kMaxFrequency);
   ramp_division_quantizer_.Init();
   delay_line_.Init();
   gate_delay_.Init();
@@ -454,11 +453,10 @@ void SegmentGenerator::ProcessFreeRunningLFO(
   active_segment_ = 0;
   switch (segments_[active_segment_].range) {
     case segment::RANGE_SLOW:
-      frequency /= 16;
+      frequency /= 16.0f;
       break;
     case segment::RANGE_FAST:
-      frequency *= 64;
-      frequency = min(frequency, 7040.0f / kSampleRate); // A8, things seems to get weird after this...
+      frequency *= 64.0f;
       break;
     default:
       // It's good where it is
@@ -468,6 +466,7 @@ void SegmentGenerator::ProcessFreeRunningLFO(
   if (settings_->state().multimode == MULTI_MODE_STAGES_SLOW_LFO) {
     frequency /= 8.0f;
   }
+  CONSTRAIN(frequency, 0.0f, kMaxFrequency);
 
   for (size_t i = 0; i < size; ++i) {
     phase_ += frequency;
