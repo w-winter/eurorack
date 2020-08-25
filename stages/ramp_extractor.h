@@ -79,7 +79,6 @@ class RampExtractor {
   size_t current_pulse_;
   Pulse history_[kHistorySize];
 
-  float lp_period_;
   float prediction_error_[kMaxPatternPeriod + 1];
   float predicted_period_[kMaxPatternPeriod + 1];
   float average_pulse_width_;

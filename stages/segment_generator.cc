@@ -405,11 +405,12 @@ Ratio divider_ratios_slow[] = {
 Ratio divider_ratios_fast[] = {
   calc_ratio(1, 1),
   calc_ratio(2, 1),
+  calc_ratio(3, 1),
   calc_ratio(4, 1),
+  calc_ratio(5, 1),
+  calc_ratio(6, 1),
+  calc_ratio(7, 1),
   calc_ratio(8, 1),
-  calc_ratio(16, 1),
-  calc_ratio(32, 1),
-  calc_ratio(64, 1),
 };
 
 void SegmentGenerator::ProcessTapLFO(
@@ -427,7 +428,7 @@ void SegmentGenerator::ProcessTapLFO(
       break;
     case segment::RANGE_FAST:
       r = ramp_division_quantizer_.Lookup(
-          divider_ratios_fast, parameters_[0].primary * 1.03f, 7);
+          divider_ratios_fast, parameters_[0].primary * 1.03f, 8);
       break;
   }
 

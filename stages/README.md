@@ -124,7 +124,7 @@ This fork adds the following features to this mode, none of which interfere with
     - For clocked LFOs, clock multiplications are:
 	- Slow: 1/64, 1/32, 1/16, 1/8, 1/4, 1/2, 1
 	- Medium: 1/4, 1/3, 1/2, 1, 2, 3, 4 (default; original Stages' behavior)
-	- Fast: 1, 2, 4, 8, 16, 32, 64
+	- Fast: 1, 2, 3, 4, 5, 6, 7, 8
     - Hold the segment's button and move its slider to change LFO range. LFO range is indicated by the speed of the mode indicator LED's cycle. Note: artifacts appear at high frequencies depending on wave shape. Frequency has been capped at 7khz (A8) as the module acts very strangely after that...
 - **Arbitrarily slow clocked LFOs**. Previously, clocked LFOs in Stages had a reset timeout at about 5 seconds; now, the reset timeout adapts to the clock cycle, allowing for arbitrarily slow clocked LFOs (logic taken from Marbles and Tides 2). The PLL tracking will now also reset when the segment type or frequency range changes.
 - **Improved audio-rate clocked LFOs**. Previously, clocked LFOs used a PLL algorithm designed for low frequency clocks and rhythms. While this allows LFOs to adapt to more complex gate sequences, it introduces artifacts at audio rates. Clocked LFOs will now detect when they're receiving an audio rate signal and switch to an algorithm tuned to audio rates, allowing them to create harmonics of other voices. Logic adapted from Marbles and Tides 2.

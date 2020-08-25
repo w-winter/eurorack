@@ -53,7 +53,7 @@ inline bool IsWithinTolerance(float x, float y, float error) {
 
 void RampExtractor::Init(float sample_rate, float max_frequency) {
   max_frequency_ = max_frequency;
-  audio_rate_period_ = 1.0f / (100.0f / sample_rate);
+  audio_rate_period_ = 1.0f / (64.0f / sample_rate);
   audio_rate_period_hysteresis_ = audio_rate_period_;
   sample_rate_ = sample_rate;
   Reset();
@@ -138,8 +138,8 @@ void RampExtractor::Process(
   //     and whether or not to apply lpf to the target frequency. Instead, the
   //     rate (post-ratio) of the target frequency should determine whether it
   //     needs lpf. Thus, a sub-audio clock with ratio that brings it to audio
-  //     sounds shitty as it doesn't go through lpf. As a workaround, I'm
-  //     picking I'm going audio-rate if either frequency could be audio-rate.
+  //     sounds shitty as it doesn't go through lpf. As a workaround, I'm going
+  //     audio-rate if either frequency could be audio-rate.
   while (size--) {
     GateFlags flags = *gate_flags++;
 
