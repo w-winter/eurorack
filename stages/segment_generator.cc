@@ -243,18 +243,30 @@ void SegmentGenerator::ProcessMultiSegment(
 void SegmentGenerator::ProcessDecayEnvelope(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
   const float frequency = RateToFrequency(parameters_[0].primary);
+  const float attackPeriod = 1.0f / RateToFrequency(0.0f);
+  const float decayPeriod = 1.0f / frequency;
+  const float period = attackPeriod + decayPeriod;
+  const float attackDuring = attackPeriod / period;
+  const float decayDuring = 1.0f - attackDuring;
+  const float coeff = PortamentoRateToLPCoefficient(0.0f);
   while (size--) {
     if ((*gate_flags & GATE_FLAG_RISING) && (active_segment_ != 0 || segments_[0].retrig)) {
       phase_ = 0.0f;
       active_segment_ = 0;
+      start_ = lp_;
     }
+
+    value_ = phase_ < attackDuring
+      ? Crossfade(start_, 1.0f, WarpPhase(phase_ / attackDuring, 0.5f))
+      : 1.0f - WarpPhase((phase_ - attackDuring) / decayDuring, parameters_[0].secondary);
+    ONE_POLE(lp_, value_, coeff);
+    lp_ = value_;
 
     phase_ += frequency;
     if (phase_ >= 1.0f) {
       phase_ = 1.0f;
       active_segment_ = 1;
     }
-    lp_ = value_ = 1.0f - WarpPhase(phase_, parameters_[0].secondary);
     out->value = lp_;
     out->phase = phase_;
     out->segment = active_segment_;
