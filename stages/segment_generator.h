@@ -139,7 +139,7 @@ class SegmentGenerator {
       const segment::Configuration* segment_configuration,
       int num_segments);
 
-  inline void ConfigureSingleSegment(
+  inline bool ConfigureSingleSegment(
       bool has_trigger,
       segment::Configuration segment_configuration) {
 
@@ -158,6 +158,7 @@ class SegmentGenerator {
     segments_[0].bipolar = segment_configuration.bipolar;
     segments_[0].retrig = (segment_configuration.type != segment::TYPE_RAMP) || !segment_configuration.bipolar;
     num_segments_ = 1;
+    return process_fn_ == &SegmentGenerator::ProcessAttOff;
   }
 
   inline void ConfigureSlave(int i) {
@@ -188,6 +189,7 @@ class SegmentGenerator {
   DECLARE_PROCESS_FN(TapLFO);
   DECLARE_PROCESS_FN(FreeRunningLFO);
   DECLARE_PROCESS_FN(Delay);
+  DECLARE_PROCESS_FN(AttOff)
   DECLARE_PROCESS_FN(Portamento);
   DECLARE_PROCESS_FN(Random);
   DECLARE_PROCESS_FN(Turing);

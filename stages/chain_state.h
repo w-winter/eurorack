@@ -85,14 +85,31 @@ class ChainState {
     switch_pressed_[index_] = bitmask;
   }
 
-  // ChannelState used to be private, but needed the loop and input patched
-  // determination in order to know how to scale sliders. This isn't great,
-  // since something as low-level as cv_reader shouldn't really something as
-  // high level ChainState. Also, it creates a bit of circular dependence
-  // between the two, since ChainState is responsible for transmitting then
-  // values from cv_reader between modules. That said, couldn't figure out
-  // a better way short of adding slider value to the core segment
-  // configuration data structure.
+ private:
+  void DiscoverNeighbors();
+
+  void TransmitRight();
+  void TransmitLeft();
+  void ReceiveRight();
+  void ReceiveLeft();
+
+  void UpdateLocalState(
+      const IOBuffer::Block& block,
+      const Settings& settings,
+      const SegmentGenerator::Output& last_out);
+  void UpdateLocalPotCvSlider(const IOBuffer::Block& block);
+  void Configure(SegmentGenerator* segment_generator, Settings* settings);
+  void PollSwitches();
+  void BindRemoteParameters(SegmentGenerator* segment_generator);
+  void BindLocalParameters(
+      const IOBuffer::Block& block, SegmentGenerator* segment_generator);
+  void HandleRequest(Settings* settings);
+
+  struct Loop {
+    int8_t start;
+    int8_t end;
+  };
+
   struct ChannelState {
     // 7 6 5 4 3 2 1 0
     // 8 4 2 1 8 4 2 1
@@ -142,31 +159,14 @@ class ChainState {
     return &channel_state_[local_channel_index(i)];
   }
 
-
- private:
-  void DiscoverNeighbors();
-
-  void TransmitRight();
-  void TransmitLeft();
-  void ReceiveRight();
-  void ReceiveLeft();
-
-  void UpdateLocalState(
-      const IOBuffer::Block& block,
-      const Settings& settings,
-      const SegmentGenerator::Output& last_out);
-  void UpdateLocalPotCvSlider(const IOBuffer::Block& block);
-  void Configure(SegmentGenerator* segment_generator, Settings* settings);
-  void PollSwitches();
-  void BindRemoteParameters(SegmentGenerator* segment_generator);
-  void BindLocalParameters(
-      const IOBuffer::Block& block, SegmentGenerator* segment_generator);
-  void HandleRequest(Settings* settings);
-
-  struct Loop {
-    int8_t start;
-    int8_t end;
-  };
+  inline float cv_slider(const IOBuffer::Block& block, size_t i) {
+    ChannelState* s = local_channel(i);
+    segment::Configuration config = s->configuration();
+    bool bipolar = (config.bipolar
+        && (config.type == segment::TYPE_STEP || config.type == segment::TYPE_HOLD));
+    bool att = attenute_ & (1 << i);
+    return block.cv_slider_alt(i, bipolar, att);
+  }
 
   struct LeftToRightPacket {
     uint8_t last_patched_channel;
@@ -248,6 +248,7 @@ class ChainState {
   int16_t switch_press_time_[kMaxNumChannels];
   uint16_t unpatch_counter_[kNumChannels];
   LoopStatus loop_status_[kNumChannels];
+  uint8_t attenute_;
 
   ChannelBitmask switch_pressed_[kMaxChainSize];
   ChannelBitmask input_patched_[kMaxChainSize];

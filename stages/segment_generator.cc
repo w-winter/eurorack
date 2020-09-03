@@ -533,6 +533,19 @@ void SegmentGenerator::ProcessDelay(
   }
 }
 
+void SegmentGenerator::ProcessAttOff(
+    const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
+  ParameterInterpolator primary(&primary_, parameters_[0].primary, size);
+  active_segment_ = 0;
+  while (size--) {
+    lp_ = value_ = primary.Next();
+    out->value = lp_;
+    out->phase = 0.5f;
+    out->segment = active_segment_;
+    ++out;
+  }
+}
+
 void SegmentGenerator::ProcessPortamento(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
   const float coefficient = PortamentoRateToLPCoefficient(
@@ -883,7 +896,7 @@ SegmentGenerator::ProcessFn SegmentGenerator::advanced_process_fn_table_[16] = {
   &SegmentGenerator::ProcessTapLFO,
 
   // STEP
-  &SegmentGenerator::ProcessPortamento,
+  &SegmentGenerator::ProcessAttOff,
   &SegmentGenerator::ProcessPortamento,
   &SegmentGenerator::ProcessSampleAndHold,
   &SegmentGenerator::ProcessTrackAndHold,

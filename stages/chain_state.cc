@@ -237,6 +237,8 @@ void ChainState::Configure(SegmentGenerator* segment_generator, Settings* settin
   num_internal_bindings_ = 0;
   num_bindings_ = 0;
 
+  attenute_ = 0;
+
   segment::Configuration configuration[kMaxNumChannels];
 
   for (size_t i = 0; i < kNumChannels; ++i) {
@@ -252,7 +254,7 @@ void ChainState::Configure(SegmentGenerator* segment_generator, Settings* settin
         // Create a free-running channel.
         segment::Configuration c = local_channel(i)->configuration();
         c.range = segment::FreqRange(settings->state().segment_configuration[i] >> 8 & 0x03);
-        segment_generator[i].ConfigureSingleSegment(false, c);
+        attenute_ |= segment_generator[i].ConfigureSingleSegment(false, c) << i;
         binding_[num_bindings_].generator = i;
         binding_[num_bindings_].source = i;
         binding_[num_bindings_].destination = 0;
@@ -342,8 +344,8 @@ inline void ChainState::UpdateLocalState(
 inline void ChainState::UpdateLocalPotCvSlider(const IOBuffer::Block& block) {
   for (size_t i = 0; i < kNumChannels; ++i) {
     ChannelState* s = local_channel(i);
+    s->cv_slider = cv_slider(block, i) * 16384.0f + 32768.0f;
     s->pot = block.pot[i] * 256.0f;
-    s->cv_slider = block.cv_slider[i] * 16384.0f + 32768.0f;
   }
 }
 
@@ -365,7 +367,7 @@ inline void ChainState::BindLocalParameters(
     const ParameterBinding& m = binding_[i];
     segment_generator[m.generator].set_segment_parameters(
         m.destination,
-        block.cv_slider[m.source],
+        cv_slider(block, m.source),
         block.pot[m.source]);
   }
 }
