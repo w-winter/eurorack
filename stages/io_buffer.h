@@ -52,10 +52,9 @@ class IOBuffer {
     stmlib::GateFlags input[kNumChannels][kBlockSize];
     uint16_t output[kNumChannels][kBlockSize];
 
-    inline float cv_slider_alt(size_t i, bool bipolar, bool att) const {
-      float adj_cv = att ? (bipolar ? (2.0f * pot[i] - 1.0f) : pot[i]) * cv[i] : cv[i];
-      float adj_slider = bipolar ? (2.0f * slider[i] - 1.0f) : slider[i];
-      float combined_value = adj_cv + adj_slider;
+    inline float cv_slider_alt(size_t i, float slider_min, float slider_range, float cv_min, float cv_range) const {
+      float combined_value = (cv_range * cv[i] + cv_min)
+        + (slider_range * slider[i] + slider_min);
       CONSTRAIN(combined_value, -1.0f, 1.999995f);
       return combined_value;
     }

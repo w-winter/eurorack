@@ -30,6 +30,7 @@
 
 #include <algorithm>
 
+#include "stages/quantizer_scales.h"
 #include "stages/drivers/serial_link.h"
 #include "stages/segment_generator.h"
 #include "stages/settings.h"
@@ -80,6 +81,11 @@ void ChainState::Init(SerialLink* left, SerialLink* right) {
   counter_ = 0;
   num_internal_bindings_ = 0;
   num_bindings_ = 0;
+
+  for (uint8_t i=0; i<4; i++) {
+    quantizers_[i].Init();
+    quantizers_[i].Configure(scales[i]);
+  }
 }
 
 void ChainState::DiscoverNeighbors() {
@@ -228,7 +234,8 @@ void ChainState::ReceiveLeft() {
   }
 }
 
-void ChainState::Configure(SegmentGenerator* segment_generator, Settings* settings) {
+void ChainState::Configure(
+    SegmentGenerator* segment_generator, const Settings& settings) {
   size_t last_local_channel = local_channel_index(0) + kNumChannels;
   size_t last_channel = size_ * kNumChannels;
   size_t last_patched_channel = rx_last_patched_channel_;
@@ -243,6 +250,7 @@ void ChainState::Configure(SegmentGenerator* segment_generator, Settings* settin
 
   for (size_t i = 0; i < kNumChannels; ++i) {
     size_t channel = local_channel_index(i);
+    const uint16_t *local_configs = settings.state().segment_configuration;
 
     if (!local_channel(i)->input_patched()) {
       if (channel > last_patched_channel) {
@@ -253,7 +261,7 @@ void ChainState::Configure(SegmentGenerator* segment_generator, Settings* settin
       } else {
         // Create a free-running channel.
         segment::Configuration c = local_channel(i)->configuration();
-        c.range = segment::FreqRange(settings->state().segment_configuration[i] >> 8 & 0x03);
+        c.range = segment::FreqRange(local_configs[i] >> 8 & 0x03);
         attenute_ |= segment_generator[i].ConfigureSingleSegment(false, c) << i;
         binding_[num_bindings_].generator = i;
         binding_[num_bindings_].source = i;
@@ -291,8 +299,8 @@ void ChainState::Configure(SegmentGenerator* segment_generator, Settings* settin
           binding_[num_bindings_].source = i + num_segments;
           ++num_internal_bindings_;
           // Note: this will only have an effect on LFOs
-          configuration[num_segments].range = segment::FreqRange(
-              (settings->state().segment_configuration[i + num_segments] >> 8) & 0x03);
+          configuration[num_segments].range =
+            segment::FreqRange((local_configs[i + num_segments] >> 8) & 0x03);
         } else {
           // Bind remote CV/pot to this segment's parameters.
           binding_[num_bindings_].source = channel;
@@ -341,10 +349,12 @@ inline void ChainState::UpdateLocalState(
   input_patched_[index_] = input_patched_bitmask;
 }
 
-inline void ChainState::UpdateLocalPotCvSlider(const IOBuffer::Block& block) {
+inline void ChainState::UpdateLocalPotCvSlider(
+    const IOBuffer::Block& block, const Settings& settings) {
+  const uint16_t *configs = settings.state().segment_configuration;
   for (size_t i = 0; i < kNumChannels; ++i) {
     ChannelState* s = local_channel(i);
-    s->cv_slider = cv_slider(block, i) * 16384.0f + 32768.0f;
+    s->cv_slider = cv_slider(block, i, configs[i] << 12 & 0x3) * 16384.0f + 32768.0f;
     s->pot = block.pot[i] * 256.0f;
   }
 }
@@ -362,12 +372,14 @@ inline void ChainState::BindRemoteParameters(
 
 inline void ChainState::BindLocalParameters(
     const IOBuffer::Block& block,
-    SegmentGenerator* segment_generator) {
+    SegmentGenerator* segment_generator,
+    const Settings& settings) {
+  const uint16_t *configs = settings.state().segment_configuration;
   for (size_t i = 0; i < num_internal_bindings_; ++i) {
     const ParameterBinding& m = binding_[i];
     segment_generator[m.generator].set_segment_parameters(
         m.destination,
-        cv_slider(block, m.source),
+        cv_slider(block, m.source, configs[m.source] >> 12 & 0x3),
         block.pot[m.source]);
   }
 }
@@ -580,17 +592,17 @@ void ChainState::Update(
       HandleRequest(settings);
       break;
     case 2:
-      UpdateLocalPotCvSlider(block);
+      UpdateLocalPotCvSlider(block, *settings);
       TransmitLeft();
       break;
     case 3:
       ReceiveLeft();
-      Configure(segment_generator, settings);
+      Configure(segment_generator, *settings);
       BindRemoteParameters(segment_generator);
       break;
   }
 
-  BindLocalParameters(block, segment_generator);
+  BindLocalParameters(block, segment_generator, *settings);
   fill(&out[0], &out[kBlockSize], rx_last_sample_);
 
   ++counter_;

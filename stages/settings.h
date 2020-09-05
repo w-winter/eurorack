@@ -74,8 +74,9 @@ struct PersistentData {
 //  - b00001000 (0x08) -> bipolar bit
 //
 // Other new segment properties occupy the first 8 bits:
-//  - b00000011 (0x0300) ->  stages range
-//  - b00001100 (0x0600) ->  ouroboros range
+//  - b00000011 (0x0300) (8)  ->  stages range
+//  - b00001100 (0x0600) (10) ->  ouroboros range
+//  - b00110000 (0x0c00) (12) ->  quantization scale
 //
 
 #define is_bipolar(seg_config) seg_config & 0x08
@@ -112,6 +113,18 @@ class Settings {
   inline const State& state() const {
     return state_;
   }
+
+  inline bool in_seg_gen_mode() const {
+    return state_.multimode == MULTI_MODE_STAGES
+      || state_.multimode == MULTI_MODE_STAGES_ADVANCED
+      || state_.multimode == MULTI_MODE_STAGES_SLOW_LFO;
+  }
+
+  inline bool in_ouroboros_mode() const {
+    return state_.multimode == MULTI_MODE_OUROBOROS
+      || state_.multimode == MULTI_MODE_OUROBOROS_ALTERNATE;
+  }
+
 
   inline uint16_t dac_code(int index, float level) const {
     return calibration_data(index).dac_code(level);

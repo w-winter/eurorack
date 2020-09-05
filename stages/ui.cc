@@ -119,7 +119,9 @@ void Ui::Poll() {
   for (uint8_t i = 0; i < kNumChannels; ++i) {
     if (switches_.pressed(i)) {
       float slider = cv_reader_->lp_slider(i);
+      CONSTRAIN(slider, 0.0f, 0.9999f);
       float pot = cv_reader_->lp_pot(i);
+      CONSTRAIN(pot, 0.0f, 0.9999f);
 
       uint16_t old_flags = seg_config[i];
 
@@ -129,33 +131,34 @@ void Ui::Poll() {
           || fabs(slider_when_pressed_[i] - slider) > 0.1f) {
         changing_slider_prop_ |= 1 << i;
 
-        switch (multimode) {
-          case MULTI_MODE_STAGES:
-          case MULTI_MODE_STAGES_ADVANCED:
-          case MULTI_MODE_STAGES_SLOW_LFO:
-            if (chain_state_->loop_status(i) == ChainState::LOOP_STATUS_SELF
-                && (seg_config[i] & 0x3) == 0) { // Only LFOs responds
-
-              seg_config[i] &= ~0x0300; // reset range bits
-              if (slider < 0.25) {
-                seg_config[i] |= 0x0100;
-              } else if (slider > 0.75) {
-                seg_config[i] |= 0x0200;
+        if (settings_->in_seg_gen_mode()) {
+          switch (seg_config[i] & 0x3) {
+            case 0: // ramp
+              if (chain_state_->loop_status(i) == ChainState::LOOP_STATUS_SELF) {
+                seg_config[i] &= ~0x0300; // reset range bits
+                if (slider < 0.25) {
+                  seg_config[i] |= 0x0100;
+                } else if (slider > 0.75) {
+                  seg_config[i] |= 0x0200;
+                }
+                // default middle range is 0, so no else
               }
-              // default middle range is 0, so no else
-            }
-            break;
-          case MULTI_MODE_OUROBOROS:
-          case MULTI_MODE_OUROBOROS_ALTERNATE:
-            seg_config[i] &= ~(0x0300 << 2); // reset range bits
-            if (slider < 0.25) {
-              seg_config[i] |= 0x0800;
-            } else if (slider < 0.75) { // high is default in ouroboros
-              seg_config[i] |= 0x0400;
-            }
-            break;
-          default:
-            break;
+              break;
+            case 1: // step
+            case 2: // hold
+              seg_config[i] &= ~0x3000; // reset quant scale bits
+              seg_config[i] |= static_cast<uint8_t>(4 * (1.0f - slider)) << 12;
+              break;
+            default: break;
+          }
+        } else if (settings_->in_ouroboros_mode()) {
+          seg_config[i] &= ~0x0c00; // reset range bits
+          if (slider < 0.25) {
+            seg_config[i] |= 0x0800;
+          } else if (slider < 0.75) { // high is default in ouroboros
+            seg_config[i] |= 0x0400;
+          }
+          break;
         }
       }
 
@@ -194,7 +197,7 @@ void Ui::Poll() {
     chain_state_->SuspendSwitches();
   }
 
-  if (multimode == MULTI_MODE_OUROBOROS || multimode == MULTI_MODE_OUROBOROS_ALTERNATE) {
+  if (settings_->in_ouroboros_mode()) {
 
     State* s = settings_->mutable_state();
     for (int i = 0; i < kNumSwitches; ++i) {
@@ -312,11 +315,7 @@ void Ui::UpdateLEDs() {
         leds_.set(LED_GROUP_UI + i, displaying_multimode_toggle_pressed_ == i ? LED_COLOR_YELLOW : LED_COLOR_OFF);
       }
 
-    } else if (
-      multimode == MULTI_MODE_STAGES || multimode == MULTI_MODE_STAGES_SLOW_LFO || multimode == MULTI_MODE_STAGES_ADVANCED
-      || multimode == MULTI_MODE_OUROBOROS || multimode == MULTI_MODE_OUROBOROS_ALTERNATE
-    ) {
-
+    } else if (settings_->in_seg_gen_mode() || settings_->in_ouroboros_mode()) {
       // LEDs update for original Stage modes (Stages, advanced, slow LFO variant and Ouroboros)
       uint8_t pwm = system_clock.milliseconds() & 0xf;
       uint8_t fade_patterns[4] = {
@@ -334,36 +333,30 @@ void Ui::UpdateLEDs() {
 
       for (size_t i = 0; i < kNumChannels; ++i) {
         uint16_t configuration = settings_->state().segment_configuration[i];
-        if (multimode == MULTI_MODE_OUROBOROS || multimode == MULTI_MODE_OUROBOROS_ALTERNATE) {
+        int brightness = 0xf;
+        if (settings_->in_ouroboros_mode()) {
           configuration = configuration >> 4; // slide to ouroboros bits
+          brightness = fade_patterns[configuration & 0x4 ? 3 : 0];
         }
         uint8_t type = configuration & 0x3;
-        int brightness;
-        switch (multimode) {
-          case MULTI_MODE_OUROBOROS:
-          case MULTI_MODE_OUROBOROS_ALTERNATE:
-            brightness = fade_patterns[configuration & 0x4 ? 3 : 0];
-            break;
-          case MULTI_MODE_STAGES:
-          case MULTI_MODE_STAGES_ADVANCED:
-          case MULTI_MODE_STAGES_SLOW_LFO:
-            brightness = chain_state_->loop_status(i) == ChainState::LOOP_STATUS_SELF && type == 0 ?
-              lfo_patterns[configuration >> 8 & 0x3] : fade_patterns[chain_state_->loop_status(i)];
-            break;
-          default:
-            brightness = 0.0f;
-            break; // We're not in one of these modes
-        }
         LedColor color = palette_[type];
-        if (type == 3) {
-          uint8_t proportion = (system_clock.milliseconds() >> 7) & 15;
-          proportion = proportion > 7 ? 15 - proportion : proportion;
-          if ((system_clock.milliseconds() & 7) < proportion) {
-            color = LED_COLOR_GREEN;
-          } else {
-            color = LED_COLOR_RED;
-          }
+        if (settings_->in_seg_gen_mode()) {
+          brightness = chain_state_->loop_status(i) == ChainState::LOOP_STATUS_SELF && type == 0 ?
+            lfo_patterns[configuration >> 8 & 0x3] : fade_patterns[chain_state_->loop_status(i)];
 
+          if ((changing_slider_prop_ & (1 << i)) && (type == 1 || type == 2)) {
+            uint8_t scale = 3 - ((configuration >> 12) & 0x3);
+            color = (system_clock.milliseconds() >> 6) % 2 == 0 ?
+              palette_[scale] : LED_COLOR_OFF;
+          } else if (type == 3) {
+            uint8_t proportion = (system_clock.milliseconds() >> 7) & 15;
+            proportion = proportion > 7 ? 15 - proportion : proportion;
+            if ((system_clock.milliseconds() & 7) < proportion) {
+              color = LED_COLOR_GREEN;
+            } else {
+              color = LED_COLOR_RED;
+            }
+          }
         }
         if (settings_->state().color_blind == 1) {
           if (type == 0) {
@@ -377,7 +370,9 @@ void Ui::UpdateLEDs() {
             // Not sure how to make it distinct.
           }
         }
-        if (is_bipolar(configuration) && ((system_clock.milliseconds() >> 8) % 4 == 0)) {
+        if (settings_->in_seg_gen_mode()
+            && is_bipolar(configuration)
+            && ((system_clock.milliseconds() >> 8) % 4 == 0)) {
           color = LED_COLOR_RED;
           brightness = 0x1;
         }

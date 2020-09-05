@@ -29,6 +29,7 @@
 #ifndef STAGES_CHAIN_STATE_H_
 #define STAGES_CHAIN_STATE_H_
 
+#include "stages/quantizer.h"
 #include "stages/settings.h"
 #include "stmlib/stmlib.h"
 
@@ -97,12 +98,14 @@ class ChainState {
       const IOBuffer::Block& block,
       const Settings& settings,
       const SegmentGenerator::Output& last_out);
-  void UpdateLocalPotCvSlider(const IOBuffer::Block& block);
-  void Configure(SegmentGenerator* segment_generator, Settings* settings);
+  void UpdateLocalPotCvSlider(
+      const IOBuffer::Block& block, const Settings& settings);
+  void Configure(SegmentGenerator* segment_generator, const Settings& settings);
   void PollSwitches();
   void BindRemoteParameters(SegmentGenerator* segment_generator);
   void BindLocalParameters(
-      const IOBuffer::Block& block, SegmentGenerator* segment_generator);
+      const IOBuffer::Block& block, SegmentGenerator* segment_generator,
+      const Settings& settings);
   void HandleRequest(Settings* settings);
 
   struct Loop {
@@ -159,13 +162,29 @@ class ChainState {
     return &channel_state_[local_channel_index(i)];
   }
 
-  inline float cv_slider(const IOBuffer::Block& block, size_t i) {
-    ChannelState* s = local_channel(i);
-    segment::Configuration config = s->configuration();
-    bool bipolar = (config.bipolar
+  float cv_slider(const IOBuffer::Block& block, size_t i, uint8_t scale) {
+    const ChannelState* s = local_channel(i);
+    const segment::Configuration config = s->configuration();
+    const bool bipolar = (config.bipolar
         && (config.type == segment::TYPE_STEP || config.type == segment::TYPE_HOLD));
-    bool att = attenute_ & (1 << i);
-    return block.cv_slider_alt(i, bipolar, att);
+    const bool att = attenute_ & (1 << i);
+    float slider_range = 1.0f;
+    if (config.bipolar && (config.type == segment::TYPE_STEP || config.type == segment::TYPE_HOLD)) {
+      slider_range *= 2.0f;
+    }
+    bool quantize = scale > 0
+      && (config.type == segment::TYPE_STEP || config.type == segment::TYPE_HOLD);
+    if (quantize) {
+      slider_range *= 0.25f;
+    }
+    float raw_cv = block.cv_slider_alt(
+        i,
+        bipolar ? -1.0f : 0.0f, slider_range,
+        0.0f, att ? block.pot[i] : 1.0f);
+    if (quantize) {
+      return quantizers_[scale].Process(raw_cv);
+    }
+    return raw_cv;
   }
 
   struct LeftToRightPacket {
@@ -235,6 +254,8 @@ class ChainState {
   }
 
   RequestPacket MakeLoopChangeRequest(size_t loop_start, size_t loop_end);
+
+  Quantizer quantizers_[4];
 
   size_t index_;
   size_t size_;
