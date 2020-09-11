@@ -314,7 +314,11 @@ void ChainState::Configure(
       }
       // Change from original: Always mark single gated segments dirty to update range
       if (dirty || num_segments != segment_generator[i].num_segments() || num_segments == 1) {
-        segment_generator[i].Configure(true, configuration, num_segments);
+        if (num_segments == 1) {
+          attenute_ |= segment_generator[i].ConfigureSingleSegment(true, configuration[0]) << i;
+        } else {
+          segment_generator[i].Configure(true, configuration, num_segments);
+        }
       }
       set_loop_status(i, 0, last_loop);
     }

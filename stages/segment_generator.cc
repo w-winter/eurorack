@@ -344,6 +344,27 @@ void SegmentGenerator::ProcessSampleAndHold(
   }
 }
 
+void SegmentGenerator::ProcessAttSampleAndHold(
+    const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
+  ParameterInterpolator primary(&primary_, parameters_[0].primary, size);
+
+  while (size--) {
+    const float p = primary.Next();
+    gate_delay_.Write(*gate_flags);
+    if (gate_delay_.Read(kSampleAndHoldDelay) & GATE_FLAG_RISING) {
+      value_ = p;
+    }
+    active_segment_ = *gate_flags & GATE_FLAG_HIGH ? 0 : 1;
+
+    out->value = lp_ = value_;
+    out->phase = 0.5f;
+    out->segment = active_segment_;
+    ++gate_flags;
+    ++out;
+  }
+}
+
+
 void SegmentGenerator::ProcessTrackAndHold(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
   const float coefficient = PortamentoRateToLPCoefficient(
@@ -405,11 +426,14 @@ Ratio divider_ratios[] = {
 };
 
 Ratio divider_ratios_slow[] = {
-  calc_ratio(1, 64),
   calc_ratio(1, 32),
   calc_ratio(1, 16),
   calc_ratio(1, 8),
+  calc_ratio(1, 7),
+  calc_ratio(1, 6),
+  calc_ratio(1, 5),
   calc_ratio(1, 4),
+  calc_ratio(1, 3),
   calc_ratio(1, 2),
   calc_ratio(1, 1),
 };
@@ -423,6 +447,8 @@ Ratio divider_ratios_fast[] = {
   calc_ratio(6, 1),
   calc_ratio(7, 1),
   calc_ratio(8, 1),
+  calc_ratio(12, 1),
+  calc_ratio(16, 1),
 };
 
 void SegmentGenerator::ProcessTapLFO(
@@ -436,11 +462,11 @@ void SegmentGenerator::ProcessTapLFO(
       break;
     case segment::RANGE_SLOW:
       r = ramp_division_quantizer_.Lookup(
-          divider_ratios_slow, parameters_[0].primary * 1.03f, 7);
+          divider_ratios_slow, parameters_[0].primary * 1.03f, 10);
       break;
     case segment::RANGE_FAST:
       r = ramp_division_quantizer_.Lookup(
-          divider_ratios_fast, parameters_[0].primary * 1.03f, 8);
+          divider_ratios_fast, parameters_[0].primary * 1.03f, 10);
       break;
   }
 
@@ -538,8 +564,7 @@ void SegmentGenerator::ProcessAttOff(
   ParameterInterpolator primary(&primary_, parameters_[0].primary, size);
   active_segment_ = 0;
   while (size--) {
-    lp_ = value_ = primary.Next();
-    out->value = lp_;
+    out->value = lp_ = value_ = primary.Next();
     out->phase = 0.5f;
     out->segment = active_segment_;
     ++out;
@@ -581,11 +606,11 @@ void SegmentGenerator::ProcessRandom(
       if (segments_[0].bipolar) {
         value_ = 10.0f / 8.0f * (value_ - 0.5f);
       }
-      active_segment_ = 1;
     }
     ONE_POLE(lp_, value_, coefficient);
+    active_segment_ = phase_ < 0.5 ? 0 : 1;
     out->value = lp_;
-    out->phase = 0.5f;
+    out->phase = phase_;
     out->segment = active_segment_;
     ++out;
   }
@@ -896,10 +921,10 @@ SegmentGenerator::ProcessFn SegmentGenerator::advanced_process_fn_table_[16] = {
   &SegmentGenerator::ProcessTapLFO,
 
   // STEP
-  &SegmentGenerator::ProcessAttOff,
   &SegmentGenerator::ProcessPortamento,
+  &SegmentGenerator::ProcessAttOff,
   &SegmentGenerator::ProcessSampleAndHold,
-  &SegmentGenerator::ProcessTrackAndHold,
+  &SegmentGenerator::ProcessAttSampleAndHold,
 
   // HOLD
   &SegmentGenerator::ProcessDelay,
