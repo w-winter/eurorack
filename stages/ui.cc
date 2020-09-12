@@ -147,7 +147,7 @@ void Ui::Poll() {
             case 1: // step
             case 2: // hold
               seg_config[i] &= ~0x3000; // reset quant scale bits
-              seg_config[i] |= static_cast<uint8_t>(4 * (1.0f - slider)) << 12;
+              seg_config[i] |= static_cast<uint8_t>(4 *  slider) << 12;
               break;
             default: break;
           }
