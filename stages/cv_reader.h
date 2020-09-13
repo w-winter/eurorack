@@ -47,6 +47,8 @@ class CvReader {
 
   void Init(Settings* settings, ChainState* chain_state);
   void Read(IOBuffer::Block* block);
+  void Lock(int i);
+  void Unlock(int i);
 
   inline uint8_t raw_cv(int i) const {
     return (int32_t(cv_adc_.value(i)) + 32768) >> 8;
@@ -72,6 +74,18 @@ class CvReader {
     return lp_pot_[i];
   }
 
+  inline float locked_slider(int i) const {
+    return locked_slider_[i];
+  }
+
+  inline float locked_pot(int i) const {
+    return locked_pot_[i];
+  }
+
+  inline bool is_locked(int i) const {
+    return locked >> i & 1;
+  }
+
  private:
   Settings* settings_;
   ChainState* chain_state_;
@@ -82,6 +96,11 @@ class CvReader {
   float lp_cv_2_[kNumChannels];
   float lp_slider_[kNumChannels];
   float lp_pot_[kNumChannels];
+
+  uint8_t locked;
+  float locked_slider_[kNumChannels];
+  float locked_pot_[kNumChannels];
+
 
   DISALLOW_COPY_AND_ASSIGN(CvReader);
 };

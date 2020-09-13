@@ -67,8 +67,6 @@ void Ui::Init(Settings* settings, ChainState* chain_state, CvReader* cv_reader) 
   system_clock.Init();
   fill(&press_time_[0], &press_time_[kNumSwitches], 0);
   fill(&press_time_multimode_toggle_[0], &press_time_multimode_toggle_[kNumSwitches], 0);
-  fill(&slider_when_pressed_[0], &slider_when_pressed_[kNumChannels], -1.0f);
-  fill(&pot_when_pressed_[0], &pot_when_pressed_[kNumChannels], -1.0f);
 
   settings_ = settings;
   mode_ = UI_MODE_NORMAL;
@@ -118,17 +116,19 @@ void Ui::Poll() {
   uint16_t* seg_config = settings_->mutable_state()->segment_configuration;
   for (uint8_t i = 0; i < kNumChannels; ++i) {
     if (switches_.pressed(i)) {
+      cv_reader_->Lock(i);
       float slider = cv_reader_->lp_slider(i);
       CONSTRAIN(slider, 0.0f, 0.9999f);
       float pot = cv_reader_->lp_pot(i);
       CONSTRAIN(pot, 0.0f, 0.9999f);
 
+      float locked_slider = cv_reader_->locked_slider(i);
+      float locked_pot = cv_reader_->locked_pot(i);
+
       uint16_t old_flags = seg_config[i];
 
-      if (slider_when_pressed_[i] == -1.0f) {
-        slider_when_pressed_[i] = slider;
-      } else if (changing_slider_prop_ >> i & 1 // in the middle of change, so keep changing
-          || fabs(slider_when_pressed_[i] - slider) > 0.1f) {
+      if (changing_slider_prop_ >> i & 1 // in the middle of change, so keep changing
+          || fabs(slider - locked_slider) > 0.1f) {
         changing_slider_prop_ |= 1 << i;
 
         if (settings_->in_seg_gen_mode()) {
@@ -162,11 +162,9 @@ void Ui::Poll() {
         }
       }
 
-      if (pot_when_pressed_[i] == -1.0f) {
-        pot_when_pressed_[i] = pot;
-      } else if(
+      if(
           !(changing_pot_prop_ >> i & 1) // This is a toggle, so don't change if we've changed.
-          && fabs(pot_when_pressed_[i] - pot) > 0.1f) {
+          && fabs(pot - locked_pot) > 0.1f) {
 
         changing_pot_prop_ |= 1 << i;
         switch (multimode) {
@@ -184,8 +182,7 @@ void Ui::Poll() {
     } else {
       changing_pot_prop_ &= ~(1 << i);
       changing_slider_prop_ &= ~(1 << i);
-      slider_when_pressed_[i] = -1.0f;
-      pot_when_pressed_[i] = -1.0f;
+      cv_reader_->Unlock(i);
     }
   }
   if (dirty) {

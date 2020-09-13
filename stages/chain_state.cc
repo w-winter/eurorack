@@ -358,7 +358,7 @@ inline void ChainState::UpdateLocalPotCvSlider(
   const uint16_t *configs = settings.state().segment_configuration;
   for (size_t i = 0; i < kNumChannels; ++i) {
     ChannelState* s = local_channel(i);
-    s->cv_slider = cv_slider(block, i, configs[i] << 12 & 0x3) * 16384.0f + 32768.0f;
+    s->cv_slider = cv_slider(block, i, configs[i] >> 12 & 0x3) * 16384.0f + 32768.0f;
     s->pot = block.pot[i] * 256.0f;
   }
 }

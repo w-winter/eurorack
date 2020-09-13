@@ -87,9 +87,7 @@ class Ui {
   Leds leds_;
   Switches switches_;
   float lp_slider_[kNumChannels];
-  float slider_when_pressed_[kNumChannels];
   uint8_t changing_slider_prop_;
-  float pot_when_pressed_[kNumChannels];
   uint8_t changing_pot_prop_;
 
   LedColor led_color_[kNumLEDs];

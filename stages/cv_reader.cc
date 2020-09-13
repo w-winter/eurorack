@@ -53,6 +53,10 @@ void CvReader::Init(Settings* settings, ChainState* chain_state) {
   fill(&lp_slider_[0], &lp_slider_[kNumChannels], 0.0f);
   fill(&lp_cv_[0], &lp_cv_[kNumChannels], 0.0f);
   fill(&lp_cv_2_[0], &lp_cv_2_[kNumChannels], 0.0f);
+  fill(&locked_pot_[0], &locked_pot_[kNumChannels], 0.0f);
+  fill(&locked_slider_[0], &locked_slider_[kNumChannels], 0.0f);
+
+  locked = 0;
 }
 
 void CvReader::Read(IOBuffer::Block* block) {
@@ -75,12 +79,12 @@ void CvReader::Read(IOBuffer::Block* block) {
         pots_adc_.float_value(ADC_GROUP_SLIDER, i),
         0.025f);
 
-    float slider = lp_slider_[i];
+    float slider = is_locked(i) ? locked_slider_[i] : lp_slider_[i];
 
     float combined_value = value + slider;
     CONSTRAIN(combined_value, -1.0f, 1.999995f);
 
-    block->pot[i] = lp_pot_[i];
+    block->pot[i] = is_locked(i) ? locked_pot_[i] : lp_pot_[i];
     block->cv_slider[i] = combined_value;
     block->cv[i] = value;
     block->slider[i] = slider;
@@ -89,5 +93,18 @@ void CvReader::Read(IOBuffer::Block* block) {
   pots_adc_.Convert();
   cv_adc_.Convert();
 }
+
+void CvReader::Lock(int i) {
+  if (!is_locked(i)) {
+    locked |= 1 << i;
+    locked_pot_[i] = lp_pot_[i];
+    locked_slider_[i] = lp_slider_[i];
+  }
+}
+
+void CvReader::Unlock(int i) {
+  locked &= ~(1 << i);
+}
+
 
 }  // namespace stages
