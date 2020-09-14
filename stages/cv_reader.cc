@@ -56,7 +56,9 @@ void CvReader::Init(Settings* settings, ChainState* chain_state) {
   fill(&locked_pot_[0], &locked_pot_[kNumChannels], 0.0f);
   fill(&locked_slider_[0], &locked_slider_[kNumChannels], 0.0f);
 
-  locked = 0;
+  locked_ = 0;
+  pot_limbo_ = 0;
+  slider_limbo_ = 0;
 }
 
 void CvReader::Read(IOBuffer::Block* block) {
@@ -79,12 +81,14 @@ void CvReader::Read(IOBuffer::Block* block) {
         pots_adc_.float_value(ADC_GROUP_SLIDER, i),
         0.025f);
 
-    float slider = is_locked(i) ? locked_slider_[i] : lp_slider_[i];
+    float slider = is_locked(i) || update_slider_limbo(i)
+      ? locked_slider_[i] : lp_slider_[i];
 
     float combined_value = value + slider;
     CONSTRAIN(combined_value, -1.0f, 1.999995f);
 
-    block->pot[i] = is_locked(i) ? locked_pot_[i] : lp_pot_[i];
+    block->pot[i] = is_locked(i) || update_pot_limbo(i)
+      ? locked_pot_[i] : lp_pot_[i];
     block->cv_slider[i] = combined_value;
     block->cv[i] = value;
     block->slider[i] = slider;
@@ -96,14 +100,18 @@ void CvReader::Read(IOBuffer::Block* block) {
 
 void CvReader::Lock(int i) {
   if (!is_locked(i)) {
-    locked |= 1 << i;
+    locked_ |= 1 << i;
     locked_pot_[i] = lp_pot_[i];
     locked_slider_[i] = lp_slider_[i];
   }
 }
 
 void CvReader::Unlock(int i) {
-  locked &= ~(1 << i);
+  if (is_locked(i)) {
+    locked_ &= ~(1 << i);
+    slider_limbo_ |= 1 << i;
+    pot_limbo_ |= 1 << i;
+  }
 }
 
 

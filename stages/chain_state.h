@@ -172,7 +172,7 @@ class ChainState {
           const bool att = (attenute_ >> i) & 1;
           const bool quantize = scale > 0;
           const float pot = block.pot[i];
-          float raw_cv = block.cv_slider_alt(
+          const float raw_cv = block.cv_slider_alt(
               i,
               (bipolar ? -1.0f : 0.0f) * (quantize ? 0.25 : 1.0f),
               (bipolar ? 2.0f : 1.0f) * (quantize ? 0.25f : 1.0f),

@@ -35,8 +35,11 @@
 #include "stages/drivers/pots_adc.h"
 #include "stages/drivers/cv_adc.h"
 #include "stages/io_buffer.h"
+#include <cmath>
 
 namespace stages {
+
+using namespace std;
 
 class Settings;
 
@@ -83,7 +86,29 @@ class CvReader {
   }
 
   inline bool is_locked(int i) const {
-    return locked >> i & 1;
+    return locked_ >> i & 1;
+  }
+
+  inline bool pot_in_limbo(int i) const {
+    return (pot_limbo_ >> i & 1);
+  }
+
+  inline bool slider_in_limbo(int i) const {
+    return (slider_limbo_ >> i & 1);
+  }
+
+  inline bool update_pot_limbo(int i) {
+    bool in_limbo = pot_in_limbo(i)
+      && (fabs(locked_pot_[i] - lp_pot_[i]) > 0.01f);
+    pot_limbo_ &= ~(!in_limbo << i);
+    return in_limbo;
+  }
+
+  inline bool update_slider_limbo(int i) {
+    bool in_limbo = slider_in_limbo(i)
+      && (fabs(locked_slider_[i] - lp_slider_[i]) > 0.01f);
+    slider_limbo_ &= ~(!in_limbo << i);
+    return in_limbo;
   }
 
  private:
@@ -97,7 +122,9 @@ class CvReader {
   float lp_slider_[kNumChannels];
   float lp_pot_[kNumChannels];
 
-  uint8_t locked;
+  uint8_t locked_;
+  uint8_t pot_limbo_; // waiting for slider/pot to get back to true value
+  uint8_t slider_limbo_;
   float locked_slider_[kNumChannels];
   float locked_pot_[kNumChannels];
 

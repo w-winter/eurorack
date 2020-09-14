@@ -399,13 +399,21 @@ void Ui::UpdateLEDs() {
 
     }
 
+    bool blink = system_clock.milliseconds() >> 6 & 1;
     // For any multi-mode, update slider LEDs counters
     for (size_t i = 0; i < kNumChannels; ++i) {
       if (slider_led_counter_[i]) {
         --slider_led_counter_[i];
       }
-    }
 
+      if (cv_reader_->slider_in_limbo(i)) {
+        // If slider value doesn't match, make it blink fast
+        leds_.set(LED_GROUP_SLIDER + i, blink ? LED_COLOR_GREEN : LED_COLOR_OFF);
+      }
+      if (cv_reader_->pot_in_limbo(i) && blink) {
+        leds_.set(LED_GROUP_UI + i, LED_COLOR_OFF);
+      }
+    }
   }
 
   leds_.Write();
