@@ -384,7 +384,8 @@ inline void ChainState::BindLocalParameters(
     segment_generator[m.generator].set_segment_parameters(
         m.destination,
         cv_slider(block, m.source, configs[m.source] >> 12 & 0x3),
-        block.pot[m.source]);
+        block.pot[m.source],
+        block.cv[m.source]);
   }
 }
 

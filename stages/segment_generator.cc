@@ -275,6 +275,30 @@ void SegmentGenerator::ProcessDecayEnvelope(
   }
 }
 
+void SegmentGenerator::ProcessRiseAndFall(
+    const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
+  value_ = parameters_[0].value;
+  float fallParam = parameters_[0].primary - value_;
+  float fall = PortamentoRateToLPCoefficient(fallParam);
+  float rise = PortamentoRateToLPCoefficient(parameters_[0].secondary);
+
+  while (size--) {
+    if (value_ > lp_) {
+      ONE_POLE(lp_, value_, rise);
+      active_segment_ = 0;
+      phase_ = 0;
+    } else {
+      ONE_POLE(lp_, value_, fall);
+      active_segment_ = 1;
+      phase_ = 1;
+    }
+    out->value = lp_;
+    out->phase = phase_;
+    out->segment = active_segment_;
+    out++;
+  }
+}
+
 void SegmentGenerator::ProcessTimedPulseGenerator(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
   const float frequency = RateToFrequency(parameters_[0].secondary);
@@ -915,7 +939,7 @@ SegmentGenerator::ProcessFn SegmentGenerator::process_fn_table_[16] = {
 // Seems really silly to have to separate tables with just a single difference but meh
 SegmentGenerator::ProcessFn SegmentGenerator::advanced_process_fn_table_[16] = {
   // RAMP
-  &SegmentGenerator::ProcessZero,
+  &SegmentGenerator::ProcessRiseAndFall,
   &SegmentGenerator::ProcessFreeRunningLFO,
   &SegmentGenerator::ProcessDecayEnvelope,
   &SegmentGenerator::ProcessTapLFO,

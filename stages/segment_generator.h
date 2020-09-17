@@ -86,6 +86,7 @@ struct Parameters {
   // TURING        | Prob  | Sequence length
   float primary;
   float secondary;
+  float value; // only present for local segments
 };
 
 }  // namespace segment
@@ -175,6 +176,14 @@ class SegmentGenerator {
     parameters_[index].secondary = secondary;
   }
 
+  void set_segment_parameters(int index, float primary, float secondary, float value) {
+    // assert (primary >= -1.0f && primary <= 2.0f)
+    // assert (secondary >= 0.0f && secondary <= 1.0f)
+    parameters_[index].primary = primary;
+    parameters_[index].secondary = secondary;
+    parameters_[index].value = value;
+  }
+
   inline int num_segments() {
     return num_segments_;
   }
@@ -182,6 +191,7 @@ class SegmentGenerator {
  private:
   // Process function for the general case.
   DECLARE_PROCESS_FN(MultiSegment);
+  DECLARE_PROCESS_FN(RiseAndFall);
   DECLARE_PROCESS_FN(DecayEnvelope);
   DECLARE_PROCESS_FN(TimedPulseGenerator);
   DECLARE_PROCESS_FN(GateGenerator);
