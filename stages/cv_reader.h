@@ -101,6 +101,7 @@ class CvReader {
     bool in_limbo = pot_in_limbo(i)
       && (fabs(locked_pot_[i] - lp_pot_[i]) > 0.01f);
     pot_limbo_ &= ~(!in_limbo << i);
+    locked_pot_[i] += in_limbo * kBlockSize / kSampleRate;
     return in_limbo;
   }
 
@@ -108,6 +109,10 @@ class CvReader {
     bool in_limbo = slider_in_limbo(i)
       && (fabs(locked_slider_[i] - lp_slider_[i]) > 0.01f);
     slider_limbo_ &= ~(!in_limbo << i);
+    locked_slider_[i] += in_limbo
+      * 2.0f * ((locked_slider_[i] < lp_slider_[i]) - 0.5f)
+      // constant is how many seconds to take in extreme
+      * kBlockSize / (1.0f * kSampleRate);
     return in_limbo;
   }
 
