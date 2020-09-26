@@ -399,19 +399,27 @@ void Ui::UpdateLEDs() {
 
     }
 
-    bool blink = system_clock.milliseconds() >> 6 & 1;
+    uint32_t ms = system_clock.milliseconds();
     // For any multi-mode, update slider LEDs counters
     for (size_t i = 0; i < kNumChannels; ++i) {
       if (slider_led_counter_[i]) {
         --slider_led_counter_[i];
       }
 
+      // Turn off LEDs if in limbo
       if (cv_reader_->slider_in_limbo(i)) {
-        // If slider value doesn't match, make it blink fast
-        leds_.set(LED_GROUP_SLIDER + i, blink ? LED_COLOR_GREEN : LED_COLOR_OFF);
+        uint8_t dimness = static_cast<uint8_t>(
+            8 * fabs(cv_reader_->locked_slider(i) - cv_reader_->lp_slider(i)));
+        leds_.set(LED_GROUP_SLIDER + i,
+            (ms & 0x07) < dimness ? LED_COLOR_OFF : LED_COLOR_GREEN );
       }
-      if (cv_reader_->pot_in_limbo(i) && blink) {
-        leds_.set(LED_GROUP_UI + i, LED_COLOR_OFF);
+      if (cv_reader_->pot_in_limbo(i)) {
+        uint8_t dimness = static_cast<uint8_t>(
+            8 * fabs(cv_reader_->locked_pot(i) - cv_reader_->lp_pot(i)));
+
+        if ((ms & 0x07) < dimness) {
+          leds_.set(LED_GROUP_UI + i, LED_COLOR_OFF);
+        }
       }
     }
   }
