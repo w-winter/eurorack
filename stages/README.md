@@ -3,12 +3,14 @@ Mutable Instruments Stages multi-mode firmware
 
 This is an unofficial firmware for Mutable Instruments Stages. It was originally created by joeSeggiola and started as a modification to let you enter and exit the "Ouroboros" mode (the **harmonic oscillator** easter egg) at runtime, while the module is powered on. Then, it evolved adding the ability to sequence harmonic ratios, enable slower free-running LFOs and providing a completely alternative mode that transforms the module into **six identical DAHDSR envelope generators**.
 
-This fork further adds:
+This fork adds the following to segment generator mode:
 
-- Control over each segment's polarity, allowing for, for instance, bipolar LFOs; hold button and wiggle knob to toggle
+- Control over each segment's polarity, allowing for, for instance, bipolar LFOs; hold button and wiggle pot to toggle
 - Control over each LFO segments frequency range; hold button and move slider to top, middle, or bottom to select range
-- Control over ramp segments' re-trigger behavior; hold button and wiggle knob to toggle
+- Control over ramp segments' re-trigger behavior; hold button and wiggle pot to toggle
 - Arbitrarily slow clocked LFOs and improved audio-rate clocked LFOs
+- Hold and step segment quantization; hold button and move slider to select scale; slider transposes within key, allowing selection of mode
+- Start and end value tracking for ramp segments, which can be used as a kind of VCA or crossfader
 
 See segment generator mode's [usage instructions](#segment-generator) for details. None of these features interfere with the normal workflow of Stages.
 
@@ -18,7 +20,8 @@ This fork also adds a new mode, [advanced segment generator](#advanced-segment-g
     - Uniform random CV
     - Emulation of Tom Whitwell's Turing Machine
     - Logistic map
-- Adds support for track and hold
+- Makes single, non-gated, non-looping ramp (green) segments slew with independent rise and fall: CV is value, pot is rise, and slider is fall; this can be used as ASR envelope or a envelope follower as well
+- Makes single, looping step (yellow) segments attenuate instead of slew
 
 Finally, this fork allows you to control the frequency range of the harmonic oscillator mode (aka ouroboros mode; the Stages easter egg), giving access to 5 harmonically related LFOs.
 
@@ -43,10 +46,10 @@ Cheatsheet
 ---
 
 - Button + slider: Hold button and move slider to top, middle, or bottom to change value
-- Button + knob: Hold button and wiggle knob to toggle
+- Button + pot: Hold button and wiggle pot to toggle
 
 Control overview (modes in order of corresponding button; hold button for 5 seconds to switch):
-| Mode             | Button   | Hold button 1s | Slider + CV        | Knob               | Button + slider | Button + knob      |
+| Mode             | Button   | Hold button 1s | Slider + CV        | Pot                | Button + slider | Button + pot      |
 | ---              | ---      | ---            | ---                | ---                | ---             | ---                |
 | Segment gen      | Seg type | Toggle looping | Time / level       | Shape / time       | LFO range (G)   | Polarity / re-trig |
 | Adv segment gen  | Seg type | Toggle looping | Time / level       | Shape / time       | LFO range (G)   | Polarity / re-trig |
@@ -56,27 +59,27 @@ Control overview (modes in order of corresponding button; hold button for 5 seco
 | Alt harmonic osc | Shape    | Toggle shapes  | Freq (1) / harmony | Tune (1) / amp     | Freq range (1)  | -                  |
 
 Single segment types in segment generator modes (* = advanced mode; all other behaviors are unchanged from original Stages):
-| Segment type          | Behavior        | Slider + CV       | Knob        | Button + slider | Button + knob       |
+| Segment type          | Behavior        | Slider + CV       | Pot         | Button + slider | Button + pot        |
 | ---                   | ---             | ---               | ---         | ---             | -                   |
-| Green                 | Zero            | -                 | -           | -               | -                   |
+| Green                 | Zero / R&F slew*| Fall time*        | Rise time*  | -               | -                   |
 | Green looping         | LFO             | Freq              | Shape       | Freq range      | Polarity            |
 | Green gated           | Decay           | Time              | Shape       | -               | Re-trigger behavior |
 | Green gated, looping  | Clocked LFO     | Div/mul           | Shape       | Div/mul range   | Polarity            |
-| Yellow                | Slew            | Offset            | Time        | -               | Slider polarity     |
-| Yellow looping        | Slew            | Offset            | Time        | -               | Slider polarity     |
-| Yellow gated          | S&H             | Offset            | Slew        | -               | Slider polarity     |
-| Yellow gated, looping | S&H / T&H*      | Offset            | Slew        | -               | Slider polarity     |
-| Red                   | Delay           | Offset            | Time        | -               | Slider polarity     |
-| Red looping           | Delay           | Offset            | Time        | -               | Slider polarity     |
-| Red gated             | Timed pulse     | Offset            | Pulse width | -               | Slider polarity     |
-| Red gated, looping    | Gate generator  | Offset            | _           | -               | Slider polarity     |
+| Yellow                | Slew            | Offset            | Time        | Quant scale     | Slider polarity     |
+| Yellow looping        | Slew / Atten*   | Offset            | Time / Att* | Quant scale     | Slider polarity     |
+| Yellow gated          | S&H             | Offset            | Slew        | Quant scale     | Slider polarity     |
+| Yellow gated, looping | S&H / Atten*    | Offset            | Time / Att* | Quant scale     | Slider polarity     |
+| Red                   | Delay           | Offset            | Time        | Quant scale     | Slider polarity     |
+| Red looping           | Delay           | Offset            | Time        | Quant scale     | Slider polarity     |
+| Red gated             | Timed pulse     | Offset            | Pulse width | Quant scale     | Slider polarity     |
+| Red gated, looping    | Gate generator  | Offset            | _           | Quant scale     | Slider polarity     |
 | GR*                   | Uniform random  | Freq              | Slew        | -               | Polarity            |
 | GR looping*           | Uniform random  | Freq              | Slew        | -               | Polarity            |
 | GR gated*             | Turing machine  | Prob of bit flip  | Steps       | -               | Polarity            |
 | GR gated, looping*    | Logistic map    | Reproduction rate | Slew        | -               | Polarity            |
 
-Segment types in groups (only green~red and button+knob are different from original Stages):
-| Segment type | Behavior       | Slider + CV      | Knob  | Button + knob       |
+Segment types in groups (only green~red and button+pot are different from original Stages):
+| Segment type | Behavior       | Slider + CV      | Pot   | Button + pot        |
 | ---          | ---            | ---              | ---   | ---                 |
 | Green        | Ramp           | Time             | Shape | Re-trigger behavior |
 | Yellow       | Step           | Offset           | Slew  | Slider polarity     |
@@ -89,6 +92,7 @@ Segment generator LED codes:
 - Oscillations between color and black: Looping mode
 - Speed of green oscillations: LFO freq range
 - Oscillation between green and red: Random segment type in advanced mode
+- Fading in of slider/type LED after button + slider/pot: Value of slider/pot adjusting to position (giving you a chance to change a property without affecting slider/pot value much)
 
 Harmonic oscillator shapes:
 - Normal: Sine (green), triangle (yellow), square (red)
@@ -112,27 +116,44 @@ This is the standard mode of the module, refer to the official [Stages manual][4
 
 This fork adds the following features to this mode, none of which interfere with Stages normal operation; you can ignore any of them you don't care about and you won't even know they're there:
 
-- **Polarity control for each segment type** (except non-looping ramp/green). Hold button and wiggle the knob to toggle polarity. Return the knob to its original position in order to preserve the shape/time that the segment had before you pressed the button. When bipolar, the segment will flash dull red about 1/sec.
+- **Polarity control for each segment type** (except non-looping ramp/green). Hold button and wiggle the pot to toggle polarity. Return the pot to its original position in order to preserve the shape/time that the segment had before you pressed the button. When bipolar, the segment will flash dull red about 1/sec.
     - Bipolar LFOs (single, looping, green) will output -5v to 5v rather than the normal 0v to 8v.
     - Bipolar step (orange) and hold (red) have an effective slider range of -8v to 8v rather than 0v to 8v.
-- **Re-trigger control for ramp (green) segments**. Hold button and wiggle the knob toggle re-trigger behavior. When re-trigger is disabled, the segment will flash dull red about 1/sec.
+- **Re-trigger control for ramp (green) segments**. Hold button and wiggle the pot toggle re-trigger behavior. When re-trigger is disabled, the segment will flash dull red about 1/sec.
     - With re-trigger disabled, ramp segments will cause rising gates to be ignored, whereas normally rising gates cause an envelope to re-trigger from the beginning
     - For instance, if you make an AD envelope, and disable re-trigger on the A, you get classic Maths/Serge function generator behavior, allowing for weird clock dividers, subharmonic generators, and so forth.
     - You can disable re-trigger on *any* ramp segment; the D could be disabled instead of the A, so if the envelope receives a trigger after the A (but before it ends), the trigger will be ignored.
 - **Independent LFO (clocked and free) range control for each segment**;
     - For free-running, ranges are the same as Tides: 2 min to 2hz at the slowest, 0.125hz to 32hz (default and Stages' original range), and 8hz to about 2khz at the fastest. As with the original Stages and Tides, this range is further expandable by CV.
     - For clocked LFOs, clock multiplications are:
-	- Slow: 1/64, 1/32, 1/16, 1/8, 1/4, 1/2, 1
+	- Slow: 1/32, 1/16, 1/8, 1/7, 1/6, 1/5, 1/4, 1/3, 1/2, 1
 	- Medium: 1/4, 1/3, 1/2, 1, 2, 3, 4 (default; original Stages' behavior)
-	- Fast: 1, 2, 3, 4, 5, 6, 7, 8
-    - Hold the segment's button and move its slider to change LFO range. LFO range is indicated by the speed of the mode indicator LED's cycle. Note: artifacts appear at high frequencies depending on wave shape. Frequency has been capped at 7khz (A8) as the module acts very strangely after that...
+	- Fast: 1, 2, 3, 4, 5, 6, 7, 8, 12, 16
+    - Hold the segment's button and move its slider to change LFO range. LFO range is indicated by the speed of the mode indicator LED's cycle. Note: artifacts appear at high frequencies depending on wave shape. Frequency has been capped at ~7khz.
+- **Quantizing step and hold segments**. Hold button and move slider on step (yellow) and hold (red) segments to control quantization. The LED will flash and change color to indicate scale.
+    - Scale, from bottom to top: unquantized (LED off), chromatic (red), major (yellow), pentatonic (red)
+    - When quantized, the slider has an effective range of 0v-2v and is added *before* quantization, and thus transposes in key. It can thus be used as a quantized sequencer or to select [mode](https://en.wikipedia.org/wiki/Mode_\(music\)#Modern_modes)
+	- Thus, minor (aeolian) is the 6th step in major
+	- Minor pentatonic is the 4th step in pentatonic
+    - The segments also have all their normal behavior: yellows can thus slew between notes,
+    - *Note*: There is no visual indication of scale once the button is released. Sorry :( Open to ideas here, but the LEDs are already pretty overloaded.
+
+This fork also improves some behavior of the original Stages.
+While these change basic behavior, they primarily change it in places that Stages couldn't really be used before, so hopefully will feel like strict improvements.
+
 - **Arbitrarily slow clocked LFOs**. Previously, clocked LFOs in Stages had a reset timeout at about 5 seconds; now, the reset timeout adapts to the clock cycle, allowing for arbitrarily slow clocked LFOs (logic taken from Marbles and Tides 2). The PLL tracking will now also reset when the segment type or frequency range changes.
 - **Improved audio-rate clocked LFOs**. Previously, clocked LFOs used a PLL algorithm designed for low frequency clocks and rhythms. While this allows LFOs to adapt to more complex gate sequences, it introduces artifacts at audio rates. Clocked LFOs will now detect when they're receiving an audio rate signal and switch to an algorithm tuned to audio rates, allowing them to create harmonics of other voices. Logic adapted from Marbles and Tides 2.
+- **Ramp segments track start and end value**. Previously, ramp segments would track end value but sample and hold start value. This gives you:
+    - Built-in pseudo VCAs: For instance, in an ASR (green, looping red, green), plugging your signal into the red's CV in will appropriately attenuate it by attack and release.
+    - Built-in pseudo crossfading: For instance, ramp-step-ramp-step (GYGY) with two signals going into the step segments will crossfade between the two signals every time it receives a gate. Ramp-hold-ramp-hold looping continuously crossfade.
 
-For any settings that requires you hold the button to change, moving the slider or knob will disable loop mode changes or multi-mode changes (and disable the normal function of the pot), so you don't need to worry about holding the button for too long.
+For any settings that requires you hold the button to change, moving the slider or pot will disable loop mode changes or multi-mode changes (and disable the normal function of the pot), so you don't need to worry about holding the button for too long.
 Also changes to those settings won't occur unless you move it's respective control; thus, you won't accidentally change the range on an LFO while changing it's polarity unless you move the slider.
 If the slider is already in the position of the setting you want, simply wiggle it to one side and then back into the desired setting while the button is held.
-After you release the button, you can then use the knob/slider as normal.
+After you release the button, you can then use the pot/slider as normal.
+Finally, holding the button locks the value of the pot/slider so that the segment values won't change while you're changing properties (except as affected by those properties).
+After releasing the button, the value of the pot/slider while move to the position within 2 seconds, allowing you to restore the original value without the changed position having too much of an effect.
+This is indicated by the type LED/slider LED dimming and growing brighter as the value moves toward position.
 
 
 [4]: https://mutable-instruments.net/modules/stages/manual/
@@ -152,13 +173,13 @@ When used as a single segment, random segments behave as follows:
 
 - Ungated (looping or non-looping): A uniform random CV generator. Just your basic random output, with controllable frequency.
     - Slider/CV: Frequency at which new values are generated. V/oct. Slider range is 0.125hz to 32hz.
-    - Knob: Portamento
+    - Pot: Portamento
 - Gated, non-looping: An implementation of Tom Whitwell's [Turing Machine](https://www.modulargrid.net/e/music-thing-modular-turing-machine-mk-ii--). The segment contains a 16 bit shift register. Output is the current value of the shift register (unquantized). On a rising gate, the register rotates, and the bit at the end is copied to the beginning with a probability of flipping. A great algorithm for controllable randomness, as you can lock loops you like, or let them slowly evolve.
     - Slider/CV: Probability of flipping the copied bit. At 0, the sequence will be locked. At 1, the copied bit will always flip, allowing for locked sequences of twice the length. At 0.5, the copied bit will be completely random.
-    - Knob: Number of steps, from 1 to 16.
+    - Pot: Number of steps, from 1 to 16.
 - Gated, looping: A chaotic sequence generator using the [logistic map](https://en.wikipedia.org/wiki/Logistic_map). The logistic map is a chaotic system inspired by population dynamics that can range from small repeating sequences to ever evolving chaos. A rising gate applies a single iteration of the logistic map. Thanks to the [XAOC Batumi alternate firmware](https://github.com/xaocdevices/batumi/tree/alternate) for the idea (though the implementations are slightly different)!
     - Slider/CV: The reproduction rate (3.5 to 4). At the lowest, gives a simple sequence with period of 4. As it increases, the period keeps growing until it diverges. The character of the generated sequences varies greatly throughout the range.
-    - Knob: Portamento
+    - Pot: Portamento
 
 When used in an envelope, a **non-looping** random segment will act like a step (orange) segment with a Turing Machine as input.
 When the envelope reaches the random segment, the envelope will output the value of the segment's shift register and hold until the envelope receives another trigger.
@@ -167,31 +188,41 @@ When the envelope receives the trigger, the envelope will move on from the rando
 A **looping** random segment will act like a looping hold (red) segment with a Turing Machine as input.
 When the envelope reaches the random segment, the envelope will output the value of segment's shift register until the envelope's gate goes low, at which point the segment's shift register will advance.
 
-Each algorithm can produce either unipolar (0v to 8v) or bipolar (-5v to 5v) output. Hold button and wiggle knob to toggle.
+Each algorithm can produce either unipolar (0v to 8v) or bipolar (-5v to 5v) output. Hold button and wiggle pot to toggle.
 
 Tip: Don't have or want to use a quantiser, but want random melodies?
 Set one segment to an audio-rate "LFO" (green, looping, ungated: hold button and move slider to the top to set slider to audio rate, and then move it to desired frequency).
-Then, clock another bipolar (hold button, wiggle knob) LFO segment with the first.
+Then, clock another bipolar (hold button, wiggle pot) LFO segment with the first.
 Finally, feed a random segment with one of the above algorithms into the CV of the clocked, bipolar segment.
 That segment will then quantise to harmonies of the first segment.
 
-##### Track & Hold
+##### Single, non-gated, non-looping ramp (green) segments slew with independent rise and fall
 
-Single, looping, gated step (orange) segments now acts as a track and hold instead of sample and hold (single, **non**-looping, gated step segment still acts as a sample and hold).
-In other words, when the gate is high, the output follows the input.
-When the gate goes low, the segment samples the input and holds it until the gate goes high again.
-While [track and hold was possible to implement in the original Stages, it took 3 segments to do so](https://forum.mutable-instruments.net/t/stages-track-and-hold/16365).
+In normal Stages, single, non-gated, non-looping ramp segments didn't do anything.
+In advanced mode, they act as slew segments with independent rise and fall control.
+Slider controls fall time (just like in single, gated, non-looping ramp segments) and pot controls rise time.
+CV input gives the target value.
+They have the same natural RC curve of slewed yellow segments (concave rise and convex fall), making them natural for use as audio envelopes when paired with a linear VCA.
+These segments have a many uses beyond standard slew:
+
+- ASR envelopes: Patch your gate into the *CV* input (not gate). When the gate is high, the segment will rise and hold until the gate is release, at which point the segment will fall. This can be a nice alternative to decay segments (single, gated, non-looping green) when you want to avoid a clicky attack, or can be used as a general purpose ASR.
+- Envelope follower: Patch an audio signal into CV. Set rise short and fall longer. The segment will follow the amplitude of the audio signal. Adjust fall time to taste. Flip rise and fall to create an inverted envelope follower.
+
+##### Single, looping step (yellow) segments attenuate
+
+Single, looping step (yellow) segments attenuate instead of slew (both gated and non-gated).
+In normal Stages, these have identical behavior to non-looping.
+Pot controls attenuation amount (0 to 1 in unipolar; -1 to 1 in bipolar).
+Non-gated segments will continuously attenuate, giving you Shades-like behavior.
+Gated segments will still sample and hold, but with attenuation instead slew.
 
 - Slider/CV: Offset applied to output
-- Knob: Portamento
+- Pot: Attenuation amount; attenuverts when segment is bipolar
 
-#### Future modifications
-
-Currently, single, ungated, looping step and hold segment types do the same thing as their non-looping counterparts.
-I'm considering having their sliders attenuate rather than offset input, as I frequently find I would like easy access to attenuation in Stages.
-Suggestions are welcome.
-
-Also, currently, single, ungated, non-looping ramp segments do nothing at all, so I would be open to suggestions for behavior.
+These segments can be very handy to control the range of LFOs and random segments.
+Turning on quantization with these segments can also be quite handy.
+Feeding in an LFO gives you arpeggios with controllable range.
+Feeding in a TM segment gives a generative melodies.
 
 ### Slower free-running LFOs
 
@@ -290,6 +321,20 @@ Changelog
 
 Fork:
 
+- [v1.0.0](https://github.com/qiemem/eurorack/releases/tag/v1.0.0)
+    - Add harmonic oscillator frequency range control. Suggested by MW user [thetechnobear](https://www.muffwiggler.com/forum/viewtopic.php?f=16&t=235787&p=3332097#p3326831).
+    - Add optional quantization to step and hold segments. Suggested by @jb0000. See #1.
+    - Make single looping step segments attenuate (removes T&H). Suggested by MW users [Carrousel](https://www.muffwiggler.com/forum/viewtopic.php?p=3334476&sid=2f3e61660b8023782673d8e076106be3#p3334476) and [SavageMessiah](https://www.muffwiggler.com/forum/viewtopic.php?p=3334492&sid=2f3e61660b8023782673d8e076106be3#p3334492).
+    - Make single ngnl ramp segments slew with independent rise and fall. Implementation suggested by @jb0000. See #4.
+    - Improve clocked LFO audio rate and reset behavior
+    - Improve audio rate cap
+    - Make ramp segments track start value
+    - Lock pot/slider values when holding button and then be gradually restored. Suggested by @jb0000. See #6.
+    - Add cheat sheets to README. Having a quick reference suggested by MW user [baleen](https://www.muffwiggler.com/forum/viewtopic.php?f=16&t=235787&start=175#p3311760).
+    - Expand range of fast and slow clocked LFOs for with musically useful values (1/16 and 1/32 for slow; 12 and 16 for fast).
+    - Fix random segments crashing the module when switching to normal segment generator mode
+    - Fix Stages' LFO range messing up harmonic oscillator control.
+
 - [v1.0.0-beta4](https://github.com/qiemem/eurorack/releases/tag/v1.0.0-beta4)
     - Add advanced mode with random segments (uniform random, Turing Machine, and logistic map) and T&H (T&H moved from segment generator mode)
     - Change polarity/re-trigger control to toggle so that you can change polarity/re-trigger behavior without affecting shape/time. [Suggested by MW user jube.](https://www.muffwiggler.com/forum/viewtopic.php?f=16&t=198455&start=975#p3317120)
@@ -320,31 +365,6 @@ Original:
 [101]: https://github.com/joeSeggiola/eurorack/releases/tag/stages-multi-v1
 [102]: https://github.com/joeSeggiola/eurorack/releases/tag/stages-multi-v2
 [103]: https://github.com/joeSeggiola/eurorack/releases/tag/stages-multi-v3
-
-In the works
----
-On muffwiggler, several users suggested adding controlled random modes to Stages, and I liked the idea.
-The `turing-machine` branch adds a turing machine segment type.
-In it, the segment contains an internal shift register which it advances on clock ticks.
-The segment's slider/cv input controls the probability of flipping the copied bit.
-The segment's potentiometer controls length of the shift register.
-Currently, it only works as a standalone segment type, but will work similar to step segment with a turing machine module as input eventually.
-Still deciding what looping turing machine mode should do: perhaps internal clock with potentiometer as frequency (and fixed to 16 steps)?
-Or perhaps making it sustain based rather than hold so that it can used in envelopes without adding a step (so you'd get, e.g., ASR envelopes with a controlled random S)?
-Open to suggestions.
-Also not sure what to do with "bipolar" mode as turing machines aren't typically bipolar.
-Again open to suggestions.
-
-I do have a few concerns that might prevent the eventual integration of this mode:
-- The bipolarity change already expands the number of modes to click through to 6.
-    Adding turing machine segments would make it 8, which seems like a lot, but is the same as Plaits, so maybe not a big deal.
-- Turing machines are great for controlled randomness, but I'm wondering if there's another approach that would have a little more play better with the other segment types.
-    Right now, it gives the other modes random targets so can be used to add variety and evolution to envelopes or sequences, which is definitely useful.
-    But I've also been thinking about something that adds "woggle" to envelopes.
-    Open to ideas.
-
-That said, interweaving 6 different turing machines each with different step lengths sounds pretty awesome.
-
 
 
 Feedback
