@@ -97,7 +97,7 @@ class CvReader {
     return (slider_limbo_ >> i & 1);
   }
 
-  inline bool update_pot_limbo(int i) {
+  bool update_pot_limbo(int i) {
     bool in_limbo = pot_in_limbo(i)
       && (fabs(locked_pot_[i] - lp_pot_[i]) > 0.01f);
     pot_limbo_ &= ~(!in_limbo << i);
@@ -108,7 +108,7 @@ class CvReader {
     return in_limbo;
   }
 
-  inline bool update_slider_limbo(int i) {
+  bool update_slider_limbo(int i) {
     bool in_limbo = slider_in_limbo(i)
       && (fabs(locked_slider_[i] - lp_slider_[i]) > 0.01f);
     slider_limbo_ &= ~(!in_limbo << i);

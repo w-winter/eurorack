@@ -81,13 +81,13 @@ void CvReader::Read(IOBuffer::Block* block) {
         pots_adc_.float_value(ADC_GROUP_SLIDER, i),
         0.025f);
 
-    float slider = is_locked(i) || update_slider_limbo(i)
+    float slider = is_locked(i) || (slider_limbo_ && update_slider_limbo(i))
       ? locked_slider_[i] : lp_slider_[i];
 
     float combined_value = value + slider;
     CONSTRAIN(combined_value, -1.0f, 1.999995f);
 
-    block->pot[i] = is_locked(i) || update_pot_limbo(i)
+    block->pot[i] = is_locked(i) || (pot_limbo_ && update_pot_limbo(i))
       ? locked_pot_[i] : lp_pot_[i];
     block->cv_slider[i] = combined_value;
     block->cv[i] = value;
