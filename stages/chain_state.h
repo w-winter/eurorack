@@ -162,21 +162,20 @@ class ChainState {
     return &channel_state_[local_channel_index(i)];
   }
 
-  float cv_slider(const IOBuffer::Block& block, size_t i, uint8_t scale) {
-    const segment::Configuration config = local_channel(i)->configuration();
-    switch (config.type) {
+  float cv_slider(const IOBuffer::Block &block, size_t i, uint16_t seg_config) {
+    switch (seg_config & 0x03) {
       case segment::TYPE_STEP:
       case segment::TYPE_HOLD:
         {
-          const bool bipolar = config.bipolar;
+          uint8_t scale = seg_config >> 12 & 0x03;
+          const bool bipolar = is_bipolar(seg_config);
           const bool att = (attenute_ >> i) & 1;
           const bool quantize = scale > 0;
           const float pot = block.pot[i];
           const float raw_cv = block.cv_slider_alt(
               i,
               (bipolar ? -1.0f : 0.0f) * (quantize ? 0.25 : 1.0f),
-              (bipolar ? 2.0f : 1.0f) * (quantize ? 0.25f : 1.0f),
-              0.0f,
+              (bipolar ? 2.0f : 1.0f) * (quantize ? 0.25f : 1.0f), 0.0f,
               att ? (bipolar ? 2.0f * pot - 1.0f : pot) : 1.0f);
           if (quantize) {
             return quantizers_[scale].Process(raw_cv);
