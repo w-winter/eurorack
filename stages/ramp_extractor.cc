@@ -129,6 +129,7 @@ void RampExtractor::Process(
     size_t size) {
   float train_phase = train_phase_;
   float max_train_phase = max_train_phase_;
+  const float ar_scalar = ratio.ratio > 1.0f ? ratio.ratio : 1.0f;
 
   // TODO: There's some stuff I'm not crazy about in this code but don't have
   // time to fix right now:
@@ -156,10 +157,7 @@ void RampExtractor::Process(
         reset_interval_ = 4.0f * p.total_duration;
       } else {
         float period = float(p.total_duration);
-        float ar_period = std::max(
-            audio_rate_period_hysteresis_ * ratio.ratio,
-            audio_rate_period_hysteresis_);
-        if (period <= ar_period) {
+        if (period <= audio_rate_period_hysteresis_ * ar_scalar) {
           audio_rate_ = true;
           audio_rate_period_hysteresis_ = audio_rate_period_ * 1.1f;
 
