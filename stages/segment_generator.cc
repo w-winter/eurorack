@@ -39,6 +39,7 @@
 #include <algorithm>
 
 #include "stages/resources.h"
+#include "stmlib/stmlib.h"
 #include "stmlib/utils/gate_flags.h"
 #include "stmlib/utils/random.h"
 
@@ -131,18 +132,18 @@ inline float SegmentGenerator::PortamentoRateToLPCoefficient(float rate) const {
 }
 
 static void advance_tm(
-    const size_t steps,
-    const float prob,
+    const float steps_param,
+    const float prob_param,
     uint16_t& shift_register,
     float& register_value,
     bool bipolar) {
+  size_t steps = static_cast<size_t>(16 * steps_param + 1);
+  CONSTRAIN(steps, 1, 16);
+  // Ensures regists lock at extremes
+  const float prob = 1.02 * prob_param - 0.01;
   uint16_t sr = shift_register;
   uint16_t copied_bit = (sr << (steps - 1)) & (1 << 15);
-  // Ensure registers lock at extremes. Threshold established through trial and error, though
-  // depend on power supply and such.
-  // Tested at audio rates. Still allows you to let trickles of changes through if you want.
-  float p = prob < 0.001f ? 0.0f : prob > 0.999f ? 1.1f : prob;
-  uint16_t mutated = copied_bit ^ ((Random::GetFloat() < p) << 15);
+  uint16_t mutated = copied_bit ^ ((Random::GetFloat() < prob) << 15);
   sr = (sr >> 1) | mutated;
   shift_register = sr;
   register_value = (float)(shift_register) / 65535.0f;
@@ -209,10 +210,10 @@ void SegmentGenerator::ProcessMultiSegment(
 
     if (go_to_segment != -1) {
       if (segment.advance_tm) {
-        const size_t steps = size_t(15 * parameters_[active_segment_].secondary + 1);
-        const float prob = parameters_[active_segment_].primary;
+        const float steps_param = parameters_[active_segment_].secondary;
+        const float prob_param = parameters_[active_segment_].primary;
         advance_tm(
-            steps, prob,
+            steps_param, prob_param,
             (&segments_[active_segment_])->shift_register,
             (&segments_[active_segment_])->register_value,
             segment.bipolar);
@@ -630,14 +631,19 @@ void SegmentGenerator::ProcessRandom(
 
 void SegmentGenerator::ProcessTuring(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
-  const size_t steps = size_t(15 * parameters_[0].secondary + 1);
+  float steps_param = parameters_[0].secondary;
   ParameterInterpolator primary(&primary_, parameters_[0].primary, size);
 
   Segment* seg = &segments_[0];
   while (size--) {
-    float prob = primary.Next();
+    float prob_param = primary.Next();
     if (*gate_flags & GATE_FLAG_RISING) {
-      advance_tm(steps, prob, seg->shift_register, seg->register_value, seg->bipolar);
+      advance_tm(
+          steps_param,
+          prob_param,
+          seg->shift_register,
+          seg->register_value,
+          seg->bipolar);
       value_ = seg->register_value;
     }
     active_segment_ = *gate_flags & GATE_FLAG_HIGH ? 0 : 1;
