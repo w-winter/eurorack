@@ -265,6 +265,7 @@ class ChainState {
   SerialLink* right_;
 
   ChannelState channel_state_[kMaxNumChannels];
+  uint16_t last_local_config_[kNumChannels];
   bool dirty_[kMaxNumChannels];
 
   int16_t switch_press_time_[kMaxNumChannels];

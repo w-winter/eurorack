@@ -70,6 +70,7 @@ void ChainState::Init(SerialLink* left, SerialLink* right) {
   ChannelState c = { .flags = 0b11100000, .pot = 128, .cv_slider = 32768 };
 
   fill(&channel_state_[0], &channel_state_[kMaxNumChannels], c);
+  fill(&last_local_config_[0], &last_local_config_[kNumChannels], 0);
   fill(&unpatch_counter_[0], &unpatch_counter_[kNumChannels], 0);
   fill(&loop_status_[0], &loop_status_[kNumChannels], LOOP_STATUS_NONE);
   fill(&switch_pressed_[0], &switch_pressed_[kMaxChainSize], 0);
@@ -312,8 +313,7 @@ void ChainState::Configure(
         add_more_segments = channel < last_channel && \
              !channel_state_[channel].input_patched();
       }
-      // Change from original: Always mark single gated segments dirty to update range
-      if (dirty || num_segments != segment_generator[i].num_segments() || num_segments == 1) {
+      if (dirty) {
         if (num_segments == 1) {
           attenute_ |= segment_generator[i].ConfigureSingleSegment(true, configuration[0]) << i;
         } else {
@@ -342,10 +342,13 @@ inline void ChainState::UpdateLocalState(
     }
 
     bool input_patched = unpatch_counter_[i] < kUnpatchedInputDelay;
+    uint16_t config = settings.state().segment_configuration[i];
     dirty_[local_channel_index(i)] = local_channel(i)->UpdateFlags(
         index_,
-        settings.state().segment_configuration[i],
-        input_patched);
+        config,
+        input_patched)
+      || (config != last_local_config_[i]); // Check props that are not transmitted
+    last_local_config_[i] = config;
     if (input_patched) {
       input_patched_bitmask |= 1 << i;
     }
