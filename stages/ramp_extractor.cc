@@ -167,7 +167,7 @@ void RampExtractor::Process(
           f_ratio_ = ratio.ratio;
 
           float frequency = 1.0f / period;
-          target_frequency_ = std::min(f_ratio_ * frequency, max_frequency_);
+          target_frequency_ = min(f_ratio_ * frequency, max_frequency_);
 
           float up_tolerance = (1.02f + 2.0f * frequency) * frequency_;
           float down_tolerance = (0.98f - 2.0f * frequency) * frequency_;
@@ -199,10 +199,10 @@ void RampExtractor::Process(
             float warp =  expected - train_phase + 1.0f;
             frequency_ *= max(warp, 0.01f);
           }
+          reset_interval_ = static_cast<uint32_t>(
+              max(4.0f / target_frequency_, sample_rate_ * 3.0f));
         }
 
-        reset_interval_ = static_cast<uint32_t>(
-            std::max(4.0f / target_frequency_, sample_rate_ * 3.0f));
         current_pulse_ = (current_pulse_ + 1) % kHistorySize;
       }
       history_[current_pulse_].on_duration = 0;
@@ -215,14 +215,6 @@ void RampExtractor::Process(
       ++history_[current_pulse_].on_duration;
     }
 
-    if ((flags & GATE_FLAG_FALLING) &&
-        average_pulse_width_ > 0.0f) {
-      float t_on = static_cast<float>(history_[current_pulse_].on_duration);
-      float next = max_train_phase - static_cast<float>(reset_counter_) + 1.0f;
-      float pw = average_pulse_width_;
-      frequency_ = max((next - train_phase), 0.0f) * pw / ((1.0f - pw) * t_on);
-    }
-
     if (audio_rate_) {
       ONE_POLE(frequency_, target_frequency_, lp_coefficient_);
       train_phase += frequency_;
@@ -231,6 +223,14 @@ void RampExtractor::Process(
       }
       *ramp++ = train_phase;
     } else {
+      if ((flags & GATE_FLAG_FALLING) &&
+          average_pulse_width_ > 0.0f) {
+        float t_on = static_cast<float>(history_[current_pulse_].on_duration);
+        float next = max_train_phase - static_cast<float>(reset_counter_) + 1.0f;
+        float pw = average_pulse_width_;
+        frequency_ = max((next - train_phase), 0.0f) * pw / ((1.0f - pw) * t_on);
+      }
+
       train_phase += frequency_;
       if (train_phase >= max_train_phase) {
         train_phase = max_train_phase;
