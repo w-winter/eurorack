@@ -207,6 +207,7 @@ void ProcessSixEg(IOBuffer::Block* block, size_t size) {
 
 }
 
+const int kNumOuroborosRatios = 11;
 float ouroboros_ratios[] = {
   0.25f, 0.5f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 8.0f, 8.0f
 };
@@ -239,6 +240,8 @@ void ProcessOuroboros(IOBuffer::Block* block, size_t size) {
     MAKE_INTEGRAL_FRACTIONAL(harmonic);
     harmonic_fractional = 8.0f * (harmonic_fractional - 0.5f) + 0.5f;
     CONSTRAIN(harmonic_fractional, 0.0f, 1.0f);
+    // harmonic_integral can go out of bounds with CV if harmonics set to cv_slider.
+    CONSTRAIN(harmonic_integral, 0, kNumOuroborosRatios - 2);
     const float ratio = channel == 0 ? 1.0f : Crossfade(
         ouroboros_ratios[harmonic_integral],
         ouroboros_ratios[harmonic_integral + 1],
