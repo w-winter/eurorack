@@ -319,12 +319,23 @@ This way it is possible to modulate (and therefore sequence) the harmonics with 
 
 The frequency range in this mode can be controlled just as with the normal harmonic oscillator mode (hold leftmost button and move leftmost slider).
 
+Known issues
+------------
+
+- **Having too many clocked LFOs can create tracking problems.** This firmware is somewhat more computationally intensive than the stock. As a result, clocked LFOs (which are particularly computationally intensively) can have difficulty tracking if there are too many. Typically, four clocked LFOs can be run simultaneously at audio-rate. Three can be run at LFO rate simultaneously. While this is actively being worked on, in the meantime, you can get some pretty interesting results by running all 6 segments at audio rate. See [issue #9](https://github.com/qiemem/eurorack/issues/9).
+
+See https://github.com/qiemem/eurorack/issues for full list of issues.
 
 Changelog
 ---------
 
 Fork:
 
+- [v1.0.1](https://github.com/qiemem/eurorack/releases/tag/v1.0.1)
+    - Merge in extended sequencer from latest official firmware!
+    - Ensure that 16 steps is reachable with the pot in TM mode. See #10.
+    - Add support for voltage below 0v and above 8v to alt. harmonic oscillator mode. Previously the given segment would just output a constant voltage.
+    - Significantly improve performance enabling more simultaneous clocked LFOs. See #9. Work in progress.
 - [v1.0.0](https://github.com/qiemem/eurorack/releases/tag/v1.0.0)
     - Add harmonic oscillator frequency range control. Suggested by MW user [thetechnobear](https://www.muffwiggler.com/forum/viewtopic.php?f=16&t=235787&p=3332097#p3326831).
     - Add optional quantization to step and hold segments. Suggested by @jb0000. See #1.
