@@ -853,8 +853,10 @@ void SegmentGenerator::ProcessSequencer(
     if (change_step) {
       value_ = parameters_[active_segment_].primary;
       if (quantized_output_) {
+        bool neg = value_ < 0;
+        value_ = abs(value_);
         int note = step_quantizer_[active_segment_].Process(value_, 13);
-        value_ = static_cast<float>(note) / 96.0f;
+        value_ = static_cast<float>(neg ? -note : note) / 96.0f;
       }
       change_step = false;
     }

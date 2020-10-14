@@ -25,6 +25,8 @@ This fork also adds a new mode, [advanced segment generator](#advanced-segment-g
 
 Finally, this fork allows you to control the frequency range of the harmonic oscillator mode (aka ouroboros mode; the Stages easter egg), giving access to 5 harmonically related LFOs.
 
+This fork includes the changes in official firmware 1.1 as well as [the extended sequencer official firmware](https://forum.mutable-instruments.net/t/stages-extended-sequencer-firmware/17493).
+
 ⚠️ **Warning:** This firmware has **not** been tested on multiple [chained][1] modules. It could behave strangely if chained. Obviously I'm not responsible for any issue you might encounter.
 
 [1]: https://mutable-instruments.net/modules/stages/manual/#chaining-modules
@@ -146,6 +148,8 @@ While these change basic behavior, they primarily change it in places that Stage
 - **Ramp segments track start and end value**. Previously, ramp segments would track end value but sample and hold start value. This gives you:
     - Built-in pseudo VCAs: For instance, in an ASR (green, looping red, green), plugging your signal into the red's CV in will appropriately attenuate it by attack and release.
     - Built-in pseudo crossfading: For instance, ramp-step-ramp-step (GYGY) with two signals going into the step segments will crossfade between the two signals every time it receives a gate. Ramp-hold-ramp-hold looping continuously crossfade.
+- **Negative quantized values in extended sequencer**. The [official extended sequencer firmware](https://forum.mutable-instruments.net/t/stages-extended-sequencer-firmware/17493) supports semitone quantization for positive voltages. This firmware adds support for negative voltages, meaning that bipolar step segments give you two octaves of quantized values.
+    - Note: using quantized steps in a quantized extended sequence can give unexpected results, as the extended sequence range adjustment and quantization is applied after the step's quantization.
 
 For any settings that requires you hold the button to change, moving the slider or pot will disable loop mode changes or multi-mode changes (and disable the normal function of the pot), so you don't need to worry about holding the button for too long.
 Also changes to those settings won't occur unless you move it's respective control; thus, you won't accidentally change the range on an LFO while changing it's polarity unless you move the slider.
