@@ -27,7 +27,7 @@ Finally, this fork allows you to control the frequency range of the harmonic osc
 
 This fork includes the changes in official firmware 1.1 as well as [the extended sequencer official firmware](https://forum.mutable-instruments.net/t/stages-extended-sequencer-firmware/17493).
 
-⚠️ **Warning:** This firmware has **not** been tested on multiple [chained][1] modules. It could behave strangely if chained. Obviously I'm not responsible for any issue you might encounter.
+⚠️ **Warning:** This firmware has **not** been tested on multiple [chained][1] modules. It could behave strangely if chained. Never chain a module with this firmware with a module with a different firmware. Obviously I'm not responsible for any issue you might encounter.
 
 [1]: https://mutable-instruments.net/modules/stages/manual/#chaining-modules
 
@@ -323,6 +323,7 @@ Known issues
 ------------
 
 - **Having too many clocked LFOs can create tracking problems.** This firmware is somewhat more computationally intensive than the stock. As a result, clocked LFOs (which are particularly computationally intensively) can have difficulty tracking if there are too many. Typically, four clocked LFOs can be run simultaneously at audio-rate. Three can be run at LFO rate simultaneously. While this is actively being worked on, in the meantime, you can get some pretty interesting results by running all 6 segments at audio rate. See [issue #9](https://github.com/qiemem/eurorack/issues/9).
+- **When chaining modules, only the rightmost module's segment types can be changed.** See #13.
 
 See https://github.com/qiemem/eurorack/issues for full list of issues.
 
@@ -331,6 +332,8 @@ Changelog
 
 Fork:
 
+- [v1.0.2](https://github.com/qiemem/eurorack/releases/tag/v1.0.2)
+    - Fixed groups of segments splitting correctly when new gates are patched. See #12. Thanks to pyerbass on the MI forum for catching this!
 - [v1.0.1](https://github.com/qiemem/eurorack/releases/tag/v1.0.1)
     - Merge in extended sequencer from latest official firmware!
     - Ensure that 16 steps is reachable with the pot in TM mode. See #10.

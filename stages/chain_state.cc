@@ -313,7 +313,7 @@ void ChainState::Configure(
         add_more_segments = channel < last_channel && \
              !channel_state_[channel].input_patched();
       }
-      if (dirty) {
+      if (dirty || num_segments != segment_generator[i].num_segments()) {
         if (num_segments == 1) {
           attenute_ |= segment_generator[i].ConfigureSingleSegment(true, configuration[0]) << i;
         } else {
