@@ -258,6 +258,17 @@ class SegmentGenerator {
   static ProcessFn process_fn_table_[16];
   static ProcessFn advanced_process_fn_table_[16];
 
+  enum Direction {
+    DIRECTION_UP,
+    DIRECTION_DOWN,
+    DIRECTION_UP_DOWN,
+    DIRECTION_ALTERNATING,
+    DIRECTION_RANDOM,
+    DIRECTION_RANDOM_WITHOUT_REPEAT,
+    DIRECTION_ADDRESSABLE,
+    DIRECTION_LAST
+  };
+
   int first_step_;
   int last_step_;
   bool quantized_output_;
