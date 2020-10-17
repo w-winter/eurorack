@@ -163,7 +163,8 @@ void ChainState::ReceiveRight() {
           &p->channel[kNumChannels],
           remote_channel(rx_index, 0));
       request_.request = REQUEST_NONE;
-    } else if (rx_index == 0xf) {
+    // rx_index is only 3 bits now, so check if 0x7 instead of 0xf
+    } else if (rx_index == 0x7) {
       // This suspiciously looks like a state change request packet!
       // We will take care of it later.
       request_ = *(const RequestPacket*)(p);
