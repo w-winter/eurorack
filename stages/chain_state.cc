@@ -245,8 +245,6 @@ void ChainState::Configure(
   num_internal_bindings_ = 0;
   num_bindings_ = 0;
 
-  attenute_ = 0;
-
   segment::Configuration configuration[kMaxNumChannels];
 
   for (size_t i = 0; i < kNumChannels; ++i) {
@@ -263,7 +261,7 @@ void ChainState::Configure(
         // Create a free-running channel.
         segment::Configuration c = local_channel(i)->configuration();
         c.range = segment::FreqRange(local_configs[i] >> 8 & 0x03);
-        attenute_ |= segment_generator[i].ConfigureSingleSegment(false, c) << i;
+        segment_generator[i].ConfigureSingleSegment(false, c);
         binding_[num_bindings_].generator = i;
         binding_[num_bindings_].source = i;
         binding_[num_bindings_].destination = 0;
@@ -314,14 +312,11 @@ void ChainState::Configure(
              !channel_state_[channel].input_patched();
       }
       if (dirty || num_segments != segment_generator[i].num_segments()) {
-        if (num_segments == 1) {
-          attenute_ |= segment_generator[i].ConfigureSingleSegment(true, configuration[0]) << i;
-        } else {
-          segment_generator[i].Configure(true, configuration, num_segments);
-        }
+        segment_generator[i].Configure(true, configuration, num_segments);
       }
       set_loop_status(i, 0, last_loop);
     }
+    attenuate_ |= segment_generator[i].needs_attenuation() << i;
   }
   tx_last_loop_ = last_loop;
   tx_last_patched_channel_ = last_patched_channel;

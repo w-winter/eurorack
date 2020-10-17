@@ -144,7 +144,7 @@ class SegmentGenerator {
       const segment::Configuration* segment_configuration,
       int num_segments);
 
-  inline bool ConfigureSingleSegment(
+  inline void ConfigureSingleSegment(
       bool has_trigger,
       segment::Configuration segment_configuration) {
 
@@ -163,8 +163,6 @@ class SegmentGenerator {
     segments_[0].bipolar = segment_configuration.bipolar;
     segments_[0].retrig = (segment_configuration.type != segment::TYPE_RAMP) || !segment_configuration.bipolar;
     num_segments_ = 1;
-    return process_fn_ == &SegmentGenerator::ProcessAttOff
-      || process_fn_ == &SegmentGenerator::ProcessAttSampleAndHold;
   }
 
   inline void ConfigureSlave(int i) {
@@ -190,6 +188,10 @@ class SegmentGenerator {
 
   inline int num_segments() {
     return num_segments_;
+  }
+
+  inline bool needs_attenuation() const {
+    return process_fn_ == &SegmentGenerator::ProcessAttOff || process_fn_ == &SegmentGenerator::ProcessAttSampleAndHold;
   }
 
  private:

@@ -169,7 +169,7 @@ class ChainState {
         {
           uint8_t scale = seg_config >> 12 & 0x03;
           const bool bipolar = is_bipolar(seg_config);
-          const bool att = (attenute_ >> i) & 1;
+          const bool att = (attenuate_ >> i) & 1;
           const bool quantize = scale > 0;
           const float pot = block.pot[i];
           const float raw_cv = block.cv_slider_alt(
@@ -271,7 +271,7 @@ class ChainState {
   int16_t switch_press_time_[kMaxNumChannels];
   uint16_t unpatch_counter_[kNumChannels];
   LoopStatus loop_status_[kNumChannels];
-  uint8_t attenute_;
+  uint8_t attenuate_;
 
   ChannelBitmask switch_pressed_[kMaxChainSize];
   ChannelBitmask input_patched_[kMaxChainSize];
