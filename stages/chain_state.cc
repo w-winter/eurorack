@@ -50,8 +50,6 @@ const uint32_t kUnpatchedInputDelay = 2000;
 const int32_t kLongPressDuration = 500;
 
 void ChainState::Init(SerialLink* left, SerialLink* right, const Settings& settings) {
-  index_ = 0;
-  size_ = 1;
 
   left_ = left;
   right_ = right;
@@ -69,6 +67,14 @@ void ChainState::Init(SerialLink* left, SerialLink* right, const Settings& setti
       right_rx_packet_[0].bytes,
       kPacketSize);
 
+  counter_ = 0;
+  status_ = CHAIN_REINITIALIZING;
+}
+
+void ChainState::Reinit(const Settings& settings) {
+  index_ = 0;
+  size_ = 1;
+
   ChannelState c = { .flags = 0b11100000, .pot = 128, .cv_slider = 32768 };
 
   fill(&channel_state_[0], &channel_state_[kMaxNumChannels], c);
@@ -80,7 +86,7 @@ void ChainState::Init(SerialLink* left, SerialLink* right, const Settings& setti
 
   request_.request = REQUEST_NONE;
 
-  discovering_neighbors_ = true;
+  status_ = CHAIN_DISCOVERING_NEIGHBORS;
   counter_ = 0;
   num_internal_bindings_ = 0;
   num_bindings_ = 0;
@@ -94,7 +100,7 @@ void ChainState::Init(SerialLink* left, SerialLink* right, const Settings& setti
     rightKey = kAdvancedRightKey;
   } else {
     // Other modes don't use chaining, so just skip it
-    discovering_neighbors_ = false;
+   status_ = CHAIN_READY;
   }
 
   for (uint8_t i=0; i<4; i++) {
@@ -131,12 +137,27 @@ void ChainState::DiscoverNeighbors() {
   bool ouroboros_ = index_ >= kMaxChainSize || size_ > kMaxChainSize;
 
   // The discovery phase lasts 2000ms.
-  discovering_neighbors_ = counter_ < 8000 && !ouroboros_;
-  if (discovering_neighbors_) {
+  status_ = counter_ < 8000 && !ouroboros_ ? CHAIN_DISCOVERING_NEIGHBORS : CHAIN_READY;
+  if (status_ == CHAIN_DISCOVERING_NEIGHBORS) {
     ++counter_;
   } else {
     counter_ = 0;
   }
+}
+
+void ChainState::StartReinit(const Settings& settings) {
+  // counter_ may have ticked up... do a couple times just to be safe
+  if ((counter_ % 200) == 0) {
+    left_tx_packet_.discovery.key = kReinitKey;
+    left_tx_packet_.discovery.counter = kReinitCount;
+    right_tx_packet_.discovery.key = kReinitKey;
+    right_tx_packet_.discovery.counter = kReinitCount;
+    left_->Transmit(left_tx_packet_);
+    right_->Transmit(right_tx_packet_);
+  } else if (counter_ >= 2000) {
+    Reinit(settings);
+  }
+  ++counter_;
 }
 
 void ChainState::TransmitRight() {
@@ -157,11 +178,14 @@ void ChainState::TransmitRight() {
 }
 
 void ChainState::ReceiveRight() {
-  if (index_ == size_ - 1) {
+  const RightToLeftPacket* p = right_->available_rx_buffer<RightToLeftPacket>();
+  if (p && check_reinit<RightToLeftPacket>(p)) {
+    start_reinit();
+    return;
+  } else if (index_ == size_ - 1) {
     return;
   }
 
-  const RightToLeftPacket* p = right_->available_rx_buffer<RightToLeftPacket>();
   if (p) {
     size_t rx_index = p->channel[0].index();
     if (rx_index > index_ && rx_index < size_) {
@@ -231,14 +255,16 @@ void ChainState::TransmitLeft() {
 }
 
 void ChainState::ReceiveLeft() {
-  if (index_ == 0) {
+  const LeftToRightPacket* p = left_->available_rx_buffer<LeftToRightPacket>();
+  if (p && check_reinit(p)) {
+    start_reinit();
+  } else if (index_ == 0) {
     rx_last_patched_channel_ = size_ * kNumChannels;
     rx_last_loop_.start = -1;
     rx_last_loop_.end = -1;
     return;
   }
 
-  const LeftToRightPacket* p = left_->available_rx_buffer<LeftToRightPacket>();
   if (p) {
     rx_last_patched_channel_ = p->last_patched_channel;
     rx_last_loop_ = p->last_loop;
@@ -611,9 +637,15 @@ void ChainState::Update(
     Settings* settings,
     SegmentGenerator* segment_generator,
     SegmentGenerator::Output* out) {
-  if (discovering_neighbors_) {
-    DiscoverNeighbors();
-    return;
+  switch (status_) {
+    case CHAIN_DISCOVERING_NEIGHBORS:
+      DiscoverNeighbors();
+      return;
+    case CHAIN_REINITIALIZING:
+      StartReinit(*settings);
+      return;
+    default:
+      break;
   }
 
   switch (counter_ & 0x3) {

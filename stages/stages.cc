@@ -382,7 +382,9 @@ int main(void) {
   while (1) {
     if (factory_test.running()) {
       io_buffer.Process(&FactoryTest::ProcessFn);
-    } else if (chain_state.discovering_neighbors()) {
+    } else if (
+        chain_state.status() == stages::ChainState::CHAIN_DISCOVERING_NEIGHBORS
+        || chain_state.status() == stages::ChainState::CHAIN_REINITIALIZING) {
       io_buffer.Process(&Process); // Still discovering neighbors, dont't process alternative multi-modes
     } else {
       switch ((MultiMode) settings.state().multimode) {

@@ -101,9 +101,6 @@ class Ui {
 
   UiMode mode_;
 
-  int displaying_multimode_toggle_;
-  uint8_t displaying_multimode_toggle_pressed_;
-
   static const MultiMode multimodes_[6];
   static const LedColor palette_[4];
 

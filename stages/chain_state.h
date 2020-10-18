@@ -42,6 +42,10 @@ const size_t kMaxChainSize = 6;
 const size_t kMaxNumChannels = kMaxChainSize * kNumChannels;
 const size_t kPacketSize = 24;
 
+const uint32_t kReinitKey = 0xffffffff;
+const uint32_t kReinitCount = 0xff;
+
+
 class SerialLink;
 class Settings;
 
@@ -64,7 +68,19 @@ class ChainState {
   inline size_t index() const { return index_; }
   inline size_t size() const { return size_; }
 
-  inline bool discovering_neighbors() const { return discovering_neighbors_; }
+  enum ChainStateStatus {
+    CHAIN_REINITIALIZING,
+    CHAIN_DISCOVERING_NEIGHBORS,
+    CHAIN_READY
+  };
+
+  void start_reinit() {
+    counter_ = 0;
+    status_ = CHAIN_REINITIALIZING;
+    request_.request = REQUEST_NONE;
+  }
+
+  inline ChainStateStatus status() const { return status_; }
 
   // Internally, we only store a loop bit for each channel - but the UI needs
   // to know more than that. It needs to know whether a channel with a loop bit
@@ -88,6 +104,8 @@ class ChainState {
 
  private:
   void DiscoverNeighbors();
+  void StartReinit(const Settings& settings);
+  void Reinit(const Settings& settings);
 
   void TransmitRight();
   void TransmitLeft();
@@ -254,6 +272,12 @@ class ChainState {
     }
   }
 
+  template<typename T>
+  bool check_reinit(const T* p) {
+    const DiscoveryPacket* d = reinterpret_cast<const DiscoveryPacket*>(p);
+    return (d->key == kReinitKey) && (d->counter == kReinitCount);
+  }
+
   RequestPacket MakeLoopChangeRequest(size_t loop_start, size_t loop_end);
 
   Quantizer quantizers_[4];
@@ -288,7 +312,7 @@ class ChainState {
 
   RequestPacket request_;
 
-  bool discovering_neighbors_;
+  ChainStateStatus status_;
   uint32_t counter_;
 
   Packet left_tx_packet_;

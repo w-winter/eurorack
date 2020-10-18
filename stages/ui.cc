@@ -73,9 +73,6 @@ void Ui::Init(Settings* settings, ChainState* chain_state, CvReader* cv_reader) 
   chain_state_ = chain_state;
   cv_reader_ = cv_reader;
 
-  displaying_multimode_toggle_ = 0;
-  displaying_multimode_toggle_pressed_ = 0;
-
   if (switches_.pressed_immediate(0)) {
     State* state = settings_->mutable_state();
     if (state->color_blind == 1) {
@@ -251,12 +248,8 @@ void Ui::MultiModeToggle(const uint8_t i) {
     chain_state_->SuspendSwitches(); // Don't consider chain button presses while changing mode
     state->multimode = (uint8_t) multimodes_[i];
     settings_->SaveState();
+    chain_state_->start_reinit();
   }
-
-  // Display visual feedback
-  displaying_multimode_toggle_pressed_ = i;
-  displaying_multimode_toggle_ = 1000;
-
 }
 
 inline uint8_t Ui::FadePattern(uint8_t shift, uint8_t phase) const {
@@ -278,7 +271,7 @@ void Ui::UpdateLEDs() {
       if (slider_led_counter_[i] == 0) {
         leds_.set(LED_GROUP_UI + i, palette_[counter]);
         leds_.set(LED_GROUP_SLIDER + i,
-                  counter == 0 ? LED_COLOR_GREEN : LED_COLOR_OFF);
+            counter == 0 ? LED_COLOR_GREEN : LED_COLOR_OFF);
       } else if (slider_led_counter_[i] == 1) {
         leds_.set(LED_GROUP_UI + i, LED_COLOR_GREEN);
         leds_.set(LED_GROUP_SLIDER + i, LED_COLOR_OFF);
@@ -288,7 +281,11 @@ void Ui::UpdateLEDs() {
       }
     }
 
-  } else if (chain_state_->discovering_neighbors()) {
+  } else if (chain_state_->status() == ChainState::CHAIN_REINITIALIZING) {
+    for (size_t i = 0; i < kNumChannels; ++i) {
+      leds_.set(LED_GROUP_UI + i, multimodes_[i] == settings_->state().multimode ? LED_COLOR_YELLOW : LED_COLOR_OFF);
+    }
+  } else if (chain_state_->status() == ChainState::CHAIN_DISCOVERING_NEIGHBORS) {
 
     size_t counter = system_clock.milliseconds() >> 5;
     size_t n = chain_state_->size() * kNumChannels;
@@ -306,16 +303,8 @@ void Ui::UpdateLEDs() {
 
   } else {
 
-    if (displaying_multimode_toggle_ > 0) {
-
-      // Displaying the multi-mode toggle visual feedback
-      --displaying_multimode_toggle_;
-      for (size_t i = 0; i < kNumChannels; ++i) {
-        leds_.set(LED_GROUP_UI + i, displaying_multimode_toggle_pressed_ == i ? LED_COLOR_YELLOW : LED_COLOR_OFF);
-      }
-
-    } else if (settings_->in_seg_gen_mode() || settings_->in_ouroboros_mode()) {
-      // LEDs update for original Stage modes (Stages, advanced, slow LFO variant and Ouroboros)
+    // LEDs update for original Stage modes (Stages, advanced, slow LFO variant and Ouroboros)
+    if (settings_->in_ouroboros_mode() || settings_->in_seg_gen_mode()) {
       uint8_t pwm = system_clock.milliseconds() & 0xf;
       uint8_t fade_patterns[4] = {
         0xf,  // NONE
