@@ -479,6 +479,16 @@ void ChainState::PollSwitches() {
   // the next cycle (1ms later), the internal change will be propagated
   // from module to module through the usual mechanism (ChannelState
   // transmission).
+  //
+  // New property changes (polarity, frequency range, etc.) are handled locally
+  // (transmitting what property should be changed is hard). If switches are
+  // being handled locally, a module emits 0xff for its switch pressed bitmask
+  // (0xff cannot naturally occur). Then, the rightmost module knows to suspend
+  // switch processing for that module, setting all counts to -1 for it (so
+  // that state changes aren't triggered on switch release if the count had
+  // been sufficiently high prior to property change). Properties that must be
+  // known by other modules are then trasmitted through ChannelState; this
+  // includes polarity/retrigger control (which use the same bit).
   if (index_ == size_ - 1) {
     request_.request = REQUEST_NONE;
     size_t switch_index = 0;
@@ -486,45 +496,52 @@ void ChainState::PollSwitches() {
 
     for (size_t i = 0; i < size_; ++i) {
       ChannelBitmask switch_pressed = switch_pressed_[i];
-      for (size_t j = 0; j < kNumChannels; ++j) {
-        if (switch_pressed & 1) {
-          if (switch_press_time_[switch_index] != -1) {
-            ++switch_press_time_[switch_index];
-            if (first_pressed != kMaxNumChannels) {
-              // Simultaneously pressing a pair of buttons.
-              request_ = MakeLoopChangeRequest(first_pressed, switch_index);
-              switch_press_time_[first_pressed] = -1;
-              switch_press_time_[switch_index] = -1;
-            } else {
-              first_pressed = switch_index;
+      if (switch_pressed == 0xff) {
+        // Switches are being locally processed; suspend
+        fill(
+            &switch_press_time_[switch_index],
+            &switch_press_time_[switch_index + kNumChannels],
+            -1);
+        switch_index += kNumChannels;
+      } else {
+        for (size_t j = 0; j < kNumChannels; ++j) {
+          if (switch_pressed & 1) {
+            if (switch_press_time_[switch_index] != -1) {
+              ++switch_press_time_[switch_index];
+              if (first_pressed != kMaxNumChannels) {
+                // Simultaneously pressing a pair of buttons.
+                request_ = MakeLoopChangeRequest(first_pressed, switch_index);
+                switch_press_time_[first_pressed] = -1;
+                switch_press_time_[switch_index] = -1;
+              } else {
+                first_pressed = switch_index;
+              }
             }
-          }
-        } else {
-          if (switch_press_time_[switch_index] > kLongPressDuration) { // Long-press
-            if (switch_press_time_[switch_index] < kLongPressDurationForMultiModeToggle) { // But not long enough for multi-mode toggle
-              request_ = MakeLoopChangeRequest(switch_index, switch_index);
-              switch_press_time_[switch_index] = -1;
+          } else {
+            if (switch_press_time_[switch_index] > kLongPressDuration) { // Long-press
+              if (switch_press_time_[switch_index] < kLongPressDurationForMultiModeToggle) { // But not long enough for multi-mode toggle
+                request_ = MakeLoopChangeRequest(switch_index, switch_index);
+                switch_press_time_[switch_index] = -1;
+              }
+            } else if (switch_press_time_[switch_index] > 5) {
+              // A button has been released after having been held for a
+              // sufficiently long time (5ms), but not for long enough to be
+              // detected as a long press.
+              request_.request = REQUEST_SET_SEGMENT_TYPE;
+              request_.argument[0] = switch_index;
             }
-          } else if (switch_press_time_[switch_index] > 5) {
-            // A button has been released after having been held for a
-            // sufficiently long time (5ms), but not for long enough to be
-            // detected as a long press.
-            request_.request = REQUEST_SET_SEGMENT_TYPE;
-            request_.argument[0] = switch_index;
+            switch_press_time_[switch_index] = 0;
           }
-          switch_press_time_[switch_index] = 0;
+          switch_pressed >>= 1;
+          ++switch_index;
         }
-        switch_pressed >>= 1;
-        ++switch_index;
       }
     }
   }
 }
 
 void ChainState::SuspendSwitches() {
-  for (size_t j = 0; j < kMaxNumChannels; ++j) {
-    switch_press_time_[j] = -1;
-  }
+  set_local_switch_pressed(0xff);
 }
 
 void ChainState::HandleRequest(Settings* settings) {

@@ -107,6 +107,8 @@ void Ui::Poll() {
       }
     }
   //}
+  // This should get overwritten by SuspendSwitches if a mode switch or local
+  // prop change is happening, so must happen first.
   chain_state_->set_local_switch_pressed(pressed);
 
   // TODO: This is gross. Each mode should have its own UI handler, with a
