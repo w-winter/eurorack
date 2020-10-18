@@ -40,14 +40,16 @@ namespace stages {
 
 using namespace std;
 
-const uint32_t kLeftKey = stmlib::FourCC<'d', 'i', 's', 'c'>::value;
-const uint32_t kRightKey = stmlib::FourCC<'o', 'v', 'e', 'r'>::value;
+const uint32_t kSimpleLeftKey = stmlib::FourCC<'s', 'g', 's', 'l'>::value;
+const uint32_t kSimpleRightKey = stmlib::FourCC<'s', 'g', 's', 'r'>::value;
+const uint32_t kAdvancedLeftKey = stmlib::FourCC<'s', 'g', 'a', 'l'>::value;
+const uint32_t kAdvancedRightKey = stmlib::FourCC<'s', 'g', 'a', 'r'>::value;
 
 // How long before unpatching an input actually breaks the chain.
 const uint32_t kUnpatchedInputDelay = 2000;
 const int32_t kLongPressDuration = 500;
 
-void ChainState::Init(SerialLink* left, SerialLink* right) {
+void ChainState::Init(SerialLink* left, SerialLink* right, const Settings& settings) {
   index_ = 0;
   size_ = 1;
 
@@ -83,6 +85,18 @@ void ChainState::Init(SerialLink* left, SerialLink* right) {
   num_internal_bindings_ = 0;
   num_bindings_ = 0;
 
+  if (settings.state().multimode == MULTI_MODE_STAGES) {
+    leftKey = kSimpleLeftKey;
+    rightKey = kSimpleRightKey;
+  } else if (settings.in_seg_gen_mode()) {
+    // Advanced and slow LFO are the same
+    leftKey = kAdvancedLeftKey;
+    rightKey = kAdvancedRightKey;
+  } else {
+    // Other modes don't use chaining, so just skip it
+    discovering_neighbors_ = false;
+  }
+
   for (uint8_t i=0; i<4; i++) {
     quantizers_[i].Init();
     quantizers_[i].Configure(scales[i]);
@@ -94,23 +108,23 @@ void ChainState::DiscoverNeighbors() {
   if (counter_ >= 2000 &&
       counter_ <= 6000 &&
       (counter_ % 200) == 0) {
-    left_tx_packet_.discovery.key = kLeftKey;
+    left_tx_packet_.discovery.key = leftKey;
     left_tx_packet_.discovery.counter = size_;
     left_->Transmit(left_tx_packet_);
 
-    right_tx_packet_.discovery.key = kRightKey;
+    right_tx_packet_.discovery.key = rightKey;
     right_tx_packet_.discovery.counter = index_;
     right_->Transmit(right_tx_packet_);
   }
 
   const DiscoveryPacket* l = left_->available_rx_buffer<DiscoveryPacket>();
-  if (l && l->key == kRightKey) {
+  if (l && l->key == rightKey) {
     index_ = size_t(l->counter) + 1;
     size_ = std::max(size_, index_ + 1);
   }
 
   const DiscoveryPacket* r = right_->available_rx_buffer<DiscoveryPacket>();
-  if (r && r->key == kLeftKey) {
+  if (r && r->key == leftKey) {
     size_ = std::max(size_, size_t(r->counter));
   }
 

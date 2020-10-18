@@ -52,7 +52,7 @@ class ChainState {
 
   typedef uint8_t ChannelBitmask;
 
-  void Init(SerialLink* left, SerialLink* right);
+  void Init(SerialLink* left, SerialLink* right, const Settings& settings);
   void Update(
       const IOBuffer::Block& block,
       Settings* settings,
@@ -263,6 +263,9 @@ class ChainState {
 
   SerialLink* left_;
   SerialLink* right_;
+
+  uint32_t leftKey;
+  uint32_t rightKey;
 
   ChannelState channel_state_[kMaxNumChannels];
   uint16_t last_local_config_[kNumChannels];
