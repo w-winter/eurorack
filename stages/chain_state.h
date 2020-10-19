@@ -196,7 +196,7 @@ class ChainState {
               (bipolar ? 2.0f : 1.0f) * (quantize ? 0.25f : 1.0f), 0.0f,
               att ? (bipolar ? 2.0f * pot - 1.0f : pot) : 1.0f);
           if (quantize) {
-            return quantizers_[scale].Process(raw_cv);
+            return quantizers_[i].Process(raw_cv);
           } else {
             return raw_cv;
           }
@@ -280,7 +280,7 @@ class ChainState {
 
   RequestPacket MakeLoopChangeRequest(size_t loop_start, size_t loop_end);
 
-  Quantizer quantizers_[4];
+  Quantizer quantizers_[kNumChannels];
 
   size_t index_;
   size_t size_;

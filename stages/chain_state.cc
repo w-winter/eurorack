@@ -103,9 +103,9 @@ void ChainState::Reinit(const Settings& settings) {
    status_ = CHAIN_READY;
   }
 
-  for (uint8_t i=0; i<4; i++) {
+  for (uint8_t i=0; i<kNumChannels; i++) {
     quantizers_[i].Init();
-    quantizers_[i].Configure(scales[i]);
+    quantizers_[i].Configure(scales[0]);
   }
 }
 
@@ -288,6 +288,8 @@ void ChainState::Configure(
 
   segment::Configuration configuration[kMaxNumChannels];
 
+  attenuate_ = 0;
+
   for (size_t i = 0; i < kNumChannels; ++i) {
     size_t channel = local_channel_index(i);
     const uint16_t *local_configs = settings.state().segment_configuration;
@@ -379,11 +381,16 @@ inline void ChainState::UpdateLocalState(
 
     bool input_patched = unpatch_counter_[i] < kUnpatchedInputDelay;
     uint16_t config = settings.state().segment_configuration[i];
-    dirty_[local_channel_index(i)] = local_channel(i)->UpdateFlags(
+    size_t channel = local_channel_index(i);
+    dirty_[channel] = local_channel(i)->UpdateFlags(
         index_,
         config,
         input_patched)
       || (config != last_local_config_[i]); // Check props that are not transmitted
+    if (dirty_[channel]
+        && ((config >> 12 & 0x03) != (last_local_config_[i] >> 12 & 0x03))) {
+      quantizers_[i].Configure(scales[config >> 12 & 0x03]);
+    }
     last_local_config_[i] = config;
     if (input_patched) {
       input_patched_bitmask |= 1 << i;
