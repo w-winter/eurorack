@@ -67,8 +67,7 @@ void ChainState::Init(SerialLink* left, SerialLink* right, const Settings& setti
       right_rx_packet_[0].bytes,
       kPacketSize);
 
-  counter_ = 0;
-  status_ = CHAIN_REINITIALIZING;
+  Reinit(settings);
 }
 
 void ChainState::Reinit(const Settings& settings) {
