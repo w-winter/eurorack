@@ -84,6 +84,14 @@ class Ui {
   void UpdateLEDs();
   uint8_t FadePattern(uint8_t shift, uint8_t phase) const;
 
+  void show_mode() {
+    for (size_t i = 0; i < kNumChannels; ++i) {
+      if (multimodes_[i] == settings_->state().multimode) {
+        leds_.set(i, LED_COLOR_RED);
+      }
+    }
+  }
+
   Leds leds_;
   Switches switches_;
   float lp_slider_[kNumChannels];

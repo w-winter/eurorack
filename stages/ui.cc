@@ -282,11 +282,8 @@ void Ui::UpdateLEDs() {
     }
 
   } else if (chain_state_->status() == ChainState::CHAIN_REINITIALIZING) {
-    for (size_t i = 0; i < kNumChannels; ++i) {
-      leds_.set(LED_GROUP_UI + i, multimodes_[i] == settings_->state().multimode ? LED_COLOR_YELLOW : LED_COLOR_OFF);
-    }
-  } else if (chain_state_->status() == ChainState::CHAIN_DISCOVERING_NEIGHBORS) {
-
+    show_mode();
+  } else if (chain_state_-> status() == ChainState::CHAIN_DISCOVERING_NEIGHBORS) {
     size_t counter = system_clock.milliseconds() >> 5;
     size_t n = chain_state_->size() * kNumChannels;
     counter = counter % (2 * n - 2);
@@ -300,7 +297,7 @@ void Ui::UpdateLEDs() {
         leds_.set(LED_GROUP_SLIDER + counter, LED_COLOR_GREEN);
       }
     }
-
+    show_mode();
   } else {
 
     // LEDs update for original Stage modes (Stages, advanced, slow LFO variant and Ouroboros)
