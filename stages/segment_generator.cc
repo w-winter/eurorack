@@ -769,6 +769,7 @@ void SegmentGenerator::ProcessSequencer(
   Direction direction = Direction(function_quantizer_.Process(
       parameters_[0].secondary, DIRECTION_LAST));
 
+  int last_active = active_segment_;
   if (direction == DIRECTION_ADDRESSABLE) {
     reset_ = false;
     active_segment_ = address_quantizer_.Process(
@@ -864,19 +865,35 @@ void SegmentGenerator::ProcessSequencer(
       }
     }
 
-    value_ = parameters_[active_segment_].primary;
+    value_ = segments_[active_segment_].advance_tm ?
+      segments_[active_segment_].register_value
+      : parameters_[active_segment_].primary;
     if (quantized_output_) {
       bool neg = value_ < 0;
       value_ = abs(value_);
       int note = step_quantizer_[active_segment_].Process(value_, 13);
       value_ = static_cast<float>(neg ? -note : note) / 96.0f;
     }
+    if ((last_active != active_segment_) && segments_[last_active].advance_tm) {
+      const float steps_param = parameters_[last_active].secondary;
+      const float prob_param = parameters_[last_active].primary;
+      advance_tm(
+          steps_param, prob_param,
+          (&segments_[last_active])->shift_register,
+          (&segments_[last_active])->register_value,
+          segments_[last_active].bipolar);
+    }
+    // TODO: Worth using segs.portamento_ instead of branches? If AR ever
+    // suffers, worth checking out.
+    const float port = segments_[active_segment_].advance_tm
+      ? 0.0f : parameters_[active_segment_].secondary;
 
     ONE_POLE(
         lp_,
         value_,
-        PortamentoRateToLPCoefficient(parameters_[active_segment_].secondary));
+        PortamentoRateToLPCoefficient(port));
 
+    last_active = active_segment_;
     out->value = lp_;
     out->phase = 0.0f;
     out->segment = active_segment_;
@@ -899,6 +916,8 @@ void SegmentGenerator::ConfigureSequencer(
         last_step_ = i;
       }
     }
+    segments_[i].advance_tm =
+      (segment_configuration[i].type == segment::TYPE_TURING);
   }
   if (!first_step_) {
     // No loop has been found, use the whole group.
@@ -926,8 +945,7 @@ void SegmentGenerator::Configure(
   bool sequencer_mode = segment_configuration[0].type != TYPE_STEP && \
       !segment_configuration[0].loop && num_segments >= 3;
   for (int i = 1; i < num_segments; ++i) {
-    sequencer_mode = sequencer_mode && \
-        segment_configuration[i].type == TYPE_STEP;
+    sequencer_mode = sequencer_mode && is_step(segment_configuration[i]);
   }
   if (sequencer_mode) {
     ConfigureSequencer(segment_configuration, num_segments);
