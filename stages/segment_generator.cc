@@ -339,7 +339,10 @@ void SegmentGenerator::ProcessGateGenerator(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
   ParameterInterpolator primary(&primary_, parameters_[0].primary, size);
   while (size--) {
-    active_segment_ = *gate_flags & GATE_FLAG_HIGH ? 0 : 1;
+    if (*gate_flags & GATE_FLAG_RISING) {
+      active_segment_ = Random::GetFloat() < parameters_[0].secondary ? 0 : 1;
+    }
+    active_segment_ = (*gate_flags & GATE_FLAG_HIGH) && (active_segment_ == 0) ? 0 : 1;
 
     const float p = primary.Next();
     lp_ = value_ = active_segment_ == 0 ? p : 0.0f;
