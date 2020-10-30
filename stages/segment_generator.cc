@@ -654,7 +654,7 @@ void SegmentGenerator::ProcessRandom(
 }
 
 inline float tcsa(float  v, float w, float b) {
-  return InterpolateWrap(lut_sine, v, 1024.0f) - b * w;
+  return InterpolateWrap(lut_sine, v / (2.0f * 3.14159f), 1024.0f) - b * w;
 }
 
 void SegmentGenerator::ProcessThomasSymmetricAttractor(
@@ -678,19 +678,55 @@ void SegmentGenerator::ProcessThomasSymmetricAttractor(
 
   // 3.7 determined empirically for b = 0.2
   const float dt = 3.7f * frequency;
-  const float b = (0.204f * parameters_[0].secondary + 0.001f);
+  float b = (0.199f * parameters_[0].secondary + 0.001f);
+  CONSTRAIN(b, 0.001f, 0.2f);
   const bool bipolar = segments_[0].bipolar;
 
   while (size--) {
-    const float dx = tcsa(y, x, b);;
+    // Runga-Kutta version: too slow unfortunately
+    /*
+    const float dx1 = tcsa(y, x, b);
+    const float dy1 = tcsa(z, y, b);
+    const float dz1 = tcsa(x, z, b);
+
+    const float x1 = x + dx1 * dt / 2.0f;
+    const float y1 = y + dy1 * dt / 2.0f;
+    const float z1 = z + dz1 * dt / 2.0f;
+
+    const float dx2 = tcsa(y1, x1, b);
+    const float dy2 = tcsa(z1, y1, b);
+    const float dz2 = tcsa(x1, z1, b);
+
+    const float x2 = x + dx2 * dt / 2.0f;
+    const float y2 = y + dy2 * dt / 2.0f;
+    const float z2 = z + dz2 * dt / 2.0f;
+
+    const float dx3 = tcsa(y2, x2, b);
+    const float dy3 = tcsa(z2, y2, b);
+    const float dz3 = tcsa(x2, z2, b);
+
+    const float x3 = x + dx3 * dt;
+    const float y3 = y + dy3 * dt;
+    const float z3 = z + dz3 * dt;
+
+    const float dx4 = tcsa(y3, x3, b);
+    const float dy4 = tcsa(z3, y3, b);
+    const float dz4 = tcsa(x3, z3, b);
+
+    x += dt * (dx1 + 2.0f * dx2 + 2.0f * dx3 + dx4) / 6.0f;
+    y += dt * (dy1 + 2.0f * dy2 + 2.0f * dy3 + dy4) / 6.0f;
+    z += dt * (dz1 + 2.0f * dz2 + 2.0f * dz3 + dz4) / 6.0f;
+    */
+    const float dx = tcsa(y, x, b);
     const float dy = tcsa(z, y, b);
     const float dz = tcsa(x, z, b);
-    x += dx * dt;
-    y += dy * dt;
-    z += dz * dt;
-    float squashed = (1.0f + x / ( 1 + abs(x))) / 2.0f;
+    x += dt * dx;
+    y += dt * dy;
+    z += dt * dz;
+
+    float squashed = (1.0f + x / (1.0f + abs(x))) / 2.0f;
     if (bipolar) {
-      squashed = 10.0f / 8.0f * squashed - 0.5f;
+      squashed = 10.0f / 8.0f * (squashed - 0.5f);
     }
 
     out->value = value_ = lp_= squashed;
