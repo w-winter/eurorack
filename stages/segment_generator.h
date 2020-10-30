@@ -211,6 +211,7 @@ class SegmentGenerator {
   DECLARE_PROCESS_FN(AttSampleAndHold);
   DECLARE_PROCESS_FN(Portamento);
   DECLARE_PROCESS_FN(Random);
+  DECLARE_PROCESS_FN(ThomasSymmetricAttractor);
   DECLARE_PROCESS_FN(Turing);
   DECLARE_PROCESS_FN(Logistic);
   DECLARE_PROCESS_FN(Zero);
@@ -280,6 +281,10 @@ class SegmentGenerator {
   int inhibit_clock_;
   stmlib::HysteresisQuantizer address_quantizer_;
   stmlib::HysteresisQuantizer step_quantizer_[kMaxNumSegments];
+
+  float x;
+  float y;
+  float z;
 
   DISALLOW_COPY_AND_ASSIGN(SegmentGenerator);
 };

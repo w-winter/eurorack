@@ -127,12 +127,13 @@ void Ui::Poll() {
       uint16_t old_flags = seg_config[i];
 
       if (changing_slider_prop_ >> i & 1 // in the middle of change, so keep changing
-          || fabs(slider - locked_slider) > 0.1f) {
+          || fabs(slider - locked_slider) > 0.05f) {
         changing_slider_prop_ |= 1 << i;
 
         if (settings_->in_seg_gen_mode()) {
           switch (seg_config[i] & 0x3) {
             case 0: // ramp
+            case 3: // random
               if (chain_state_->loop_status(i) == ChainState::LOOP_STATUS_SELF) {
                 seg_config[i] &= ~0x0300; // reset range bits
                 if (slider < 0.25) {
@@ -163,7 +164,7 @@ void Ui::Poll() {
 
       if(
           !(changing_pot_prop_ >> i & 1) // This is a toggle, so don't change if we've changed.
-          && fabs(pot - locked_pot) > 0.1f) {
+          && fabs(pot - locked_pot) > 0.05f) {
 
         changing_pot_prop_ |= 1 << i;
         switch (multimode) {
@@ -326,7 +327,7 @@ void Ui::UpdateLEDs() {
         uint8_t type = configuration & 0x3;
         LedColor color = palette_[type];
         if (settings_->in_seg_gen_mode()) {
-          brightness = chain_state_->loop_status(i) == ChainState::LOOP_STATUS_SELF && type == 0 ?
+          brightness = chain_state_->loop_status(i) == ChainState::LOOP_STATUS_SELF ?
             lfo_patterns[configuration >> 8 & 0x3] : fade_patterns[chain_state_->loop_status(i)];
 
           if ((changing_slider_prop_ & (1 << i)) && (type == 1 || type == 2)) {

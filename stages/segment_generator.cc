@@ -115,6 +115,10 @@ void SegmentGenerator::Init(Settings* settings) {
   first_step_ = 1;
   last_step_ = 1;
 
+  x = Random::GetFloat();
+  y = Random::GetFloat();
+  z = Random::GetFloat();
+
   quantized_output_ = false;
   up_down_counter_ = inhibit_clock_ = 0;
   reset_ = false;
@@ -649,6 +653,52 @@ void SegmentGenerator::ProcessRandom(
   }
 }
 
+inline float tcsa(float  v, float w, float b) {
+  return InterpolateWrap(lut_sine, v, 1024.0f) - b * w;
+}
+
+void SegmentGenerator::ProcessThomasSymmetricAttractor(
+    const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
+  float f = 96.0f * (parameters_[0].primary - 0.5f);
+  CONSTRAIN(f, -128.0f, 127.0f);
+
+  // 1.6 determined empirically for 0.205; doesn't really matter but meh
+  float frequency = 1.6 * SemitonesToRatio(f) * 2.0439497f / kSampleRate;
+  switch (segments_[active_segment_].range) {
+    case segment::RANGE_SLOW:
+      frequency /= 16.0f;
+      break;
+    case segment::RANGE_FAST:
+      frequency *= 64.0f;
+      break;
+    default:
+      // It's good where it is
+      break;
+  }
+
+  // 3.7 determined empirically for b = 0.2
+  const float dt = 3.7f * frequency;
+  const float b = (0.204f * parameters_[0].secondary + 0.001f);
+  const bool bipolar = segments_[0].bipolar;
+
+  while (size--) {
+    const float dx = tcsa(y, x, b);;
+    const float dy = tcsa(z, y, b);
+    const float dz = tcsa(x, z, b);
+    x += dx * dt;
+    y += dy * dt;
+    z += dz * dt;
+    float squashed = (1.0f + x / ( 1 + abs(x))) / 2.0f;
+    if (bipolar) {
+      squashed = 10.0f / 8.0f * squashed - 0.5f;
+    }
+
+    out->value = value_ = lp_= squashed;
+    out->segment = active_segment_ = 0;
+    ++out;
+  }
+}
+
 void SegmentGenerator::ProcessTuring(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
   float steps_param = parameters_[0].secondary;
@@ -1153,7 +1203,7 @@ SegmentGenerator::ProcessFn SegmentGenerator::advanced_process_fn_table_[16] = {
 
   // TURING
   &SegmentGenerator::ProcessRandom,
-  &SegmentGenerator::ProcessRandom,
+  &SegmentGenerator::ProcessThomasSymmetricAttractor,
   &SegmentGenerator::ProcessTuring,
   &SegmentGenerator::ProcessLogistic,
 };
