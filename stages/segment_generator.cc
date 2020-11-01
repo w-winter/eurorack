@@ -115,9 +115,9 @@ void SegmentGenerator::Init(Settings* settings) {
   first_step_ = 1;
   last_step_ = 1;
 
-  x = Random::GetFloat();
-  y = Random::GetFloat();
-  z = Random::GetFloat();
+  x_ = Random::GetFloat();
+  y_ = Random::GetFloat();
+  z_ = Random::GetFloat();
 
   quantized_output_ = false;
   up_down_counter_ = inhibit_clock_ = 0;
@@ -304,7 +304,7 @@ void SegmentGenerator::ProcessRiseAndFall(
     }
     out->value = lp_;
     out->phase = phase_;
-    out->segment = active_segment_ = abs(lp_) > 0.1 ? 0 : 1;
+    out->segment = active_segment_ = fabsf(lp_) > 0.1 ? 0 : 1;
     out++;
   }
 }
@@ -653,8 +653,13 @@ void SegmentGenerator::ProcessRandom(
   }
 }
 
-inline float tcsa(float  v, float w, float b) {
-  return InterpolateWrap(lut_sine, v / (2.0f * 3.14159f), 1024.0f) - b * w;
+inline float tcsa(float  v, const float w, const float b) {
+  v *= 0.159155f; // Convert radians to phase.
+  // need to calc wrap here since InterpolateWrap can't handle negatives
+  // Using floorf is too slow... The ternary is apparently faster
+  v -= static_cast<float>(static_cast<int32_t>(v));
+  v = v < 0.0f ? 1.0f - v : v;
+  return Interpolate(lut_sine, v, 1024.0f) - b * w;
 }
 
 void SegmentGenerator::ProcessThomasSymmetricAttractor(
@@ -662,8 +667,8 @@ void SegmentGenerator::ProcessThomasSymmetricAttractor(
   float f = 96.0f * (parameters_[0].primary - 0.5f);
   CONSTRAIN(f, -128.0f, 127.0f);
 
-  // 1.6 determined empirically for 0.205; doesn't really matter but meh
-  float frequency = 1.6 * SemitonesToRatio(f) * 2.0439497f / kSampleRate;
+  active_segment_ = 0;
+  float frequency = SemitonesToRatio(f) * 2.0439497f / kSampleRate;
   switch (segments_[active_segment_].range) {
     case segment::RANGE_SLOW:
       frequency /= 16.0f;
@@ -676,14 +681,23 @@ void SegmentGenerator::ProcessThomasSymmetricAttractor(
       break;
   }
 
-  // 3.7 determined empirically for b = 0.2
-  const float dt = 3.7f * frequency;
-  float b = (0.199f * parameters_[0].secondary + 0.001f);
-  CONSTRAIN(b, 0.001f, 0.2f);
+  CONSTRAIN(frequency, 0.0f, kMaxFrequency);
+  // Gives a similar feel to the LFO speeds here
+  frequency *= 32.0f;
+
+  const float max_b = 0.200f;
+  const float min_b = 0.001f;
+  float b = ((max_b - min_b) * parameters_[0].secondary + min_b);
+  CONSTRAIN(b, min_b, max_b);
   const bool bipolar = segments_[0].bipolar;
 
+  const float offset = bipolar ? 0.0f : 1.0f;
+  const float amp = bipolar ? 10.0f / 16.0f : 0.5f;
+  float x = x_;
+  float y = y_;
+  float z = z_;
   while (size--) {
-    // Runga-Kutta version: too slow unfortunately
+    // Runge-Kutta version: too slow unfortunately
     /*
     const float dx1 = tcsa(y, x, b);
     const float dy1 = tcsa(z, y, b);
@@ -717,22 +731,23 @@ void SegmentGenerator::ProcessThomasSymmetricAttractor(
     y += dt * (dy1 + 2.0f * dy2 + 2.0f * dy3 + dy4) / 6.0f;
     z += dt * (dz1 + 2.0f * dz2 + 2.0f * dz3 + dz4) / 6.0f;
     */
+
     const float dx = tcsa(y, x, b);
     const float dy = tcsa(z, y, b);
     const float dz = tcsa(x, z, b);
-    x += dt * dx;
-    y += dt * dy;
-    z += dt * dz;
+    x += frequency * dx;
+    y += frequency * dy;
+    z += frequency * dz;
 
-    float squashed = (1.0f + x / (1.0f + abs(x))) / 2.0f;
-    if (bipolar) {
-      squashed = 10.0f / 8.0f * (squashed - 0.5f);
-    }
+    float squashed = amp * (offset + x / (1.0f + fabsf(x)));
 
     out->value = value_ = lp_= squashed;
     out->segment = active_segment_ = 0;
     ++out;
   }
+  x_ = x;
+  y_ = y;
+  z_ = z;
 }
 
 void SegmentGenerator::ProcessTuring(

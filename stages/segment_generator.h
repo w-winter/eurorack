@@ -282,9 +282,9 @@ class SegmentGenerator {
   stmlib::HysteresisQuantizer address_quantizer_;
   stmlib::HysteresisQuantizer step_quantizer_[kMaxNumSegments];
 
-  float x;
-  float y;
-  float z;
+  float x_;
+  float y_;
+  float z_;
 
   DISALLOW_COPY_AND_ASSIGN(SegmentGenerator);
 };
