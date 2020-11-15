@@ -181,9 +181,13 @@ class ChainState {
   }
 
   float cv_slider(const IOBuffer::Block &block, size_t i, uint16_t seg_config) {
+    // This was empirically found to have better performance than both an `if`
+    // and a `switch` with flipped cases.
     switch (seg_config & 0x03) {
-      case segment::TYPE_STEP:
-      case segment::TYPE_HOLD:
+      case segment::TYPE_RAMP:
+      case segment::TYPE_TURING:
+        return block.cv_slider[i];
+      default:
         {
           uint8_t scale = seg_config >> 12 & 0x03;
           const bool bipolar = is_bipolar(seg_config);
@@ -201,8 +205,6 @@ class ChainState {
             return raw_cv;
           }
         }
-      default:
-        return block.cv_slider[i];
     }
   }
 
