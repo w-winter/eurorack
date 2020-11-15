@@ -209,10 +209,17 @@ void RampExtractor::Process(
       history_[current_pulse_].total_duration = 0;
     }
 
-    // Update history buffer with total duration and on duration.
+    // Update history buffer with total duration.
+    // on_duration is now updated when the gate falls for performance.
     ++history_[current_pulse_].total_duration;
-    if (flags & GATE_FLAG_HIGH) {
-      ++history_[current_pulse_].on_duration;
+    if ((flags & GATE_FLAG_FALLING)) {
+      history_[current_pulse_].on_duration = history_[current_pulse_].total_duration - 1;
+      if (average_pulse_width_ > 0.0f) {
+        float t_on = static_cast<float>(history_[current_pulse_].on_duration);
+        float next = max_train_phase - static_cast<float>(reset_counter_) + 1.0f;
+        float pw = average_pulse_width_;
+        frequency_ = max((next - train_phase), 0.0f) * pw / ((1.0f - pw) * t_on);
+      }
     }
 
     if (audio_rate_) {
@@ -223,14 +230,6 @@ void RampExtractor::Process(
       }
       *ramp++ = train_phase;
     } else {
-      if ((flags & GATE_FLAG_FALLING) &&
-          average_pulse_width_ > 0.0f) {
-        float t_on = static_cast<float>(history_[current_pulse_].on_duration);
-        float next = max_train_phase - static_cast<float>(reset_counter_) + 1.0f;
-        float pw = average_pulse_width_;
-        frequency_ = max((next - train_phase), 0.0f) * pw / ((1.0f - pw) * t_on);
-      }
-
       train_phase += frequency_;
       if (train_phase >= max_train_phase) {
         train_phase = max_train_phase;
