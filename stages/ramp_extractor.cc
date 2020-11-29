@@ -127,10 +127,21 @@ void RampExtractor::Process(
     const GateFlags* gate_flags,
     float* ramp,
     size_t size) {
+  if (audio_rate_) {
+    Process<true>(ratio, gate_flags, ramp, size);
+  } else {
+    Process<false>(ratio, gate_flags, ramp, size);
+  }
+}
+
+template<bool audio_rate>
+void RampExtractor::Process(
+    Ratio ratio,
+    const GateFlags* gate_flags,
+    float* ramp,
+    size_t size) {
   float train_phase = train_phase_;
   float max_train_phase = max_train_phase_;
-  const float ar_scalar = ratio.ratio > 1.0f ? ratio.ratio : 1.0f;
-
   // TODO: There's some stuff I'm not crazy about in this code but don't have
   // time to fix right now:
   // - frequency_ and target_frequency_ mean different things at audio rates
@@ -157,6 +168,7 @@ void RampExtractor::Process(
         reset_interval_ = 4.0f * p.total_duration;
       } else {
         float period = float(p.total_duration);
+        float ar_scalar = ratio.ratio > 1.0f ? ratio.ratio : 1.0f;
         if (period <= audio_rate_period_hysteresis_ * ar_scalar) {
           audio_rate_ = true;
           audio_rate_period_hysteresis_ = audio_rate_period_ * 1.1f;
@@ -212,9 +224,9 @@ void RampExtractor::Process(
     // Update history buffer with total duration.
     // on_duration is now updated when the gate falls for performance.
     ++history_[current_pulse_].total_duration;
-    if ((flags & GATE_FLAG_FALLING)) {
+    if (flags & GATE_FLAG_FALLING) {
       history_[current_pulse_].on_duration = history_[current_pulse_].total_duration - 1;
-      if (average_pulse_width_ > 0.0f) {
+      if (audio_rate && average_pulse_width_ > 0.0f) {
         float t_on = static_cast<float>(history_[current_pulse_].on_duration);
         float next = max_train_phase - static_cast<float>(reset_counter_) + 1.0f;
         float pw = average_pulse_width_;
@@ -222,7 +234,7 @@ void RampExtractor::Process(
       }
     }
 
-    if (audio_rate_) {
+    if (audio_rate) {
       ONE_POLE(frequency_, target_frequency_, lp_coefficient_);
       train_phase += frequency_;
       if (train_phase >= 1.0f) {
@@ -244,5 +256,8 @@ void RampExtractor::Process(
   train_phase_ = train_phase;
   max_train_phase_ = max_train_phase;
 }
+
+template void RampExtractor::Process<true>(Ratio r, const stmlib::GateFlags* gate_flags, float* ramp, size_t size);
+template void RampExtractor::Process<false>(Ratio r, const stmlib::GateFlags* gate_flags, float* ramp, size_t size);
 
 }  // namespace stages
