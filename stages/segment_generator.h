@@ -212,6 +212,7 @@ class SegmentGenerator {
   DECLARE_PROCESS_FN(Portamento);
   DECLARE_PROCESS_FN(Random);
   DECLARE_PROCESS_FN(ThomasSymmetricAttractor);
+  DECLARE_PROCESS_FN(DoubleScrollAttractor);
   DECLARE_PROCESS_FN(Turing);
   DECLARE_PROCESS_FN(Logistic);
   DECLARE_PROCESS_FN(Zero);

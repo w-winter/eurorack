@@ -662,6 +662,7 @@ inline float tcsa(float  v, const float w, const float b) {
   return Interpolate(lut_sine, v, 1024.0f) - b * w;
 }
 
+
 void SegmentGenerator::ProcessThomasSymmetricAttractor(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
   float f = 96.0f * (parameters_[0].primary - 0.5f);
@@ -743,6 +744,68 @@ void SegmentGenerator::ProcessThomasSymmetricAttractor(
 
     out->value = value_ = lp_= squashed;
     out->segment = active_segment_ = 0;
+    ++out;
+  }
+  x_ = x;
+  y_ = y;
+  z_ = z;
+}
+
+#define DS_DXDT(x,y,z) a * (y - x)
+#define DS_DYDT(x,y,z) (c - a) * x - x * z + c * y
+#define DS_DZDT(x,y,z) x * y - b * z
+
+void SegmentGenerator::ProcessDoubleScrollAttractor(
+    const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
+  float f = 96.0f * (parameters_[0].primary - 0.5f);
+  CONSTRAIN(f, -128.0f, 127.0f);
+
+  active_segment_ = 0;
+  // 1.4 gives a similar feel to the LFO speeds here
+  float frequency = SemitonesToRatio(f) * 1.4f * 2.0439497f / kSampleRate;
+  switch (segments_[active_segment_].range) {
+    case segment::RANGE_SLOW:
+      frequency /= 16.0f;
+      break;
+    case segment::RANGE_FAST:
+      frequency *= 8.0f; // Otherwise can't handle full slider range
+      break;
+    default:
+      // It's good where it is
+      break;
+  }
+  // Could increase to 0.075 if we used runge-kutta
+  CONSTRAIN(frequency, 0.0f, 0.01);
+
+
+  const float a = 42.0f;
+  const float max_b = 6.0f;
+  const float min_b = 1.0f;
+  const float b = ((max_b - min_b) * parameters_[0].secondary + min_b);
+  //CONSTRAIN(b, min_b, max_b);
+  const float c = 28.0f;
+
+  const bool bipolar = segments_[0].bipolar;
+
+  const float offset = bipolar ? -0.5f : 0.0f;
+  const float amp = bipolar ? 10.0f / 8.0f : 1.0f;
+  float x = x_;
+  float y = y_;
+  float z = z_;
+  while (size--) {
+    // Right now, behavior changes a good bit with dt. Could try runge-kutta to fix
+    const float dx = DS_DXDT(x, y, z);
+    const float dy = DS_DYDT(x, y, z);
+    const float dz = DS_DZDT(x, y, z);
+    x += frequency * dx;
+    y += frequency * dy;
+    z += frequency * dz;
+
+    float output = (x + 18.0f) / 36.0f;
+    CONSTRAIN(output, 0.0f, 1.0f);
+
+    out->value = value_ = lp_= amp * output + offset;
+    out->segment = active_segment_ = output > 0.5f;
     ++out;
   }
   x_ = x;
@@ -1254,7 +1317,8 @@ SegmentGenerator::ProcessFn SegmentGenerator::advanced_process_fn_table_[16] = {
 
   // TURING
   &SegmentGenerator::ProcessRandom,
-  &SegmentGenerator::ProcessThomasSymmetricAttractor,
+  &SegmentGenerator::ProcessDoubleScrollAttractor,
+  //&SegmentGenerator::ProcessThomasSymmetricAttractor,
   &SegmentGenerator::ProcessTuring,
   &SegmentGenerator::ProcessLogistic,
 };
