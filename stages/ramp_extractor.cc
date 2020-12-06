@@ -127,34 +127,12 @@ void RampExtractor::Process(
     const GateFlags* gate_flags,
     float* ramp,
     size_t size) {
-  if (audio_rate_) {
-    Process<true>(ratio, gate_flags, ramp, size);
-  } else {
-    Process<false>(ratio, gate_flags, ramp, size);
-  }
-}
 
-template<bool audio_rate>
-void RampExtractor::Process(
-    Ratio ratio,
-    const GateFlags* gate_flags,
-    float* ramp,
-    size_t size) {
   float train_phase = train_phase_;
   float max_train_phase = max_train_phase_;
-  // TODO: There's some stuff I'm not crazy about in this code but don't have
-  // time to fix right now:
-  // - frequency_ and target_frequency_ mean different things at audio rates
-  //     vs low frequency rates
-  // - Originally, the rate of the clock determined both which PLL alg to apply
-  //     and whether or not to apply lpf to the target frequency. Instead, the
-  //     rate (post-ratio) of the target frequency should determine whether it
-  //     needs lpf. Thus, a sub-audio clock with ratio that brings it to audio
-  //     sounds shitty as it doesn't go through lpf. As a workaround, I'm going
-  //     audio-rate if either frequency could be audio-rate.
-  while (size--) {
-    GateFlags flags = *gate_flags++;
-
+  float ar_scalar = ratio.ratio > 1.0f ? ratio.ratio : 1.0f;
+  GateFlags flags = *gate_flags++;
+  while (size) {
     // We are done with the previous pulse.
     if (flags & GATE_FLAG_RISING) {
       Pulse& p = history_[current_pulse_];
@@ -167,8 +145,7 @@ void RampExtractor::Process(
         max_train_phase = static_cast<float>(ratio.q);
         reset_interval_ = 4.0f * p.total_duration;
       } else {
-        float period = float(p.total_duration);
-        float ar_scalar = ratio.ratio > 1.0f ? ratio.ratio : 1.0f;
+        float period = static_cast<float>(p.total_duration);
         if (period <= audio_rate_period_hysteresis_ * ar_scalar) {
           audio_rate_ = true;
           audio_rate_period_hysteresis_ = audio_rate_period_ * 1.1f;
@@ -221,43 +198,46 @@ void RampExtractor::Process(
       history_[current_pulse_].total_duration = 0;
     }
 
-    // Update history buffer with total duration.
-    // on_duration is now updated when the gate falls for performance.
-    ++history_[current_pulse_].total_duration;
-    if (flags & GATE_FLAG_FALLING) {
-      history_[current_pulse_].on_duration = history_[current_pulse_].total_duration - 1;
-      if (audio_rate && average_pulse_width_ > 0.0f) {
-        float t_on = static_cast<float>(history_[current_pulse_].on_duration);
-        float next = max_train_phase - static_cast<float>(reset_counter_) + 1.0f;
-        float pw = average_pulse_width_;
-        frequency_ = max((next - train_phase), 0.0f) * pw / ((1.0f - pw) * t_on);
-      }
-    }
-
-    if (audio_rate) {
-      ONE_POLE(frequency_, target_frequency_, lp_coefficient_);
-      train_phase += frequency_;
-      if (train_phase >= 1.0f) {
-        train_phase -= 1.0f;
-      }
-      *ramp++ = train_phase;
+    if (audio_rate_) {
+      do {
+        ++history_[current_pulse_].total_duration;
+        if (flags & GATE_FLAG_FALLING) {
+          history_[current_pulse_].on_duration = history_[current_pulse_].total_duration - 1;
+        }
+        ONE_POLE(frequency_, target_frequency_, lp_coefficient_);
+        train_phase += frequency_;
+        train_phase -= static_cast<float>(static_cast<int32_t>(train_phase));
+        *ramp++ = train_phase;
+      } while (
+          (--size)
+          && !((flags = *gate_flags++) & GATE_FLAG_RISING));
     } else {
-      train_phase += frequency_;
-      if (train_phase >= max_train_phase) {
-        train_phase = max_train_phase;
-      }
+      do {
+        ++history_[current_pulse_].total_duration;
+        if (flags & GATE_FLAG_FALLING) {
+          history_[current_pulse_].on_duration = history_[current_pulse_].total_duration - 1;
+          if (average_pulse_width_ > 0.0f) {
+            float t_on = static_cast<float>(history_[current_pulse_].on_duration);
+            float next = max_train_phase - static_cast<float>(reset_counter_) + 1.0f;
+            float pw = average_pulse_width_;
+            frequency_ = max((next - train_phase), 0.0f) * pw / ((1.0f - pw) * t_on);
+          }
+        }
+        train_phase += frequency_;
+        if (train_phase >= max_train_phase) {
+          train_phase = max_train_phase;
+        }
 
-      float phase = train_phase * f_ratio_;
-      phase -= static_cast<float>(static_cast<int32_t>(phase));
-      *ramp++ = phase;
+        float phase = train_phase * f_ratio_;
+        phase -= static_cast<float>(static_cast<int32_t>(phase));
+        *ramp++ = phase;
+      } while (
+          (--size)
+          && !((flags = *gate_flags++) & GATE_FLAG_RISING));
     }
-  }
 
+  }
   train_phase_ = train_phase;
   max_train_phase_ = max_train_phase;
 }
-
-template void RampExtractor::Process<true>(Ratio r, const stmlib::GateFlags* gate_flags, float* ramp, size_t size);
-template void RampExtractor::Process<false>(Ratio r, const stmlib::GateFlags* gate_flags, float* ramp, size_t size);
-
 }  // namespace stages

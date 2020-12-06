@@ -57,13 +57,6 @@ class RampExtractor {
 
   void Init(float sample_rate, float max_frequency);
 
-  template<bool audio_rate>
-  void Process(
-      Ratio r,
-      const stmlib::GateFlags* gate_flags,
-      float* ramp,
-      size_t size);
-
   void Process(
       Ratio r,
       const stmlib::GateFlags* gate_flags,
