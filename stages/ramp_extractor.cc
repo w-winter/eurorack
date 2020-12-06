@@ -132,20 +132,20 @@ void RampExtractor::Process(
   float max_train_phase = max_train_phase_;
   float ar_scalar = ratio.ratio > 1.0f ? ratio.ratio : 1.0f;
   GateFlags flags = *gate_flags++;
+  Pulse& cur_pulse = history_[current_pulse_];
   while (size) {
     // We are done with the previous pulse.
     if (flags & GATE_FLAG_RISING) {
-      Pulse& p = history_[current_pulse_];
-      const bool record_pulse = p.total_duration < reset_interval_;
+      const bool record_pulse = cur_pulse.total_duration < reset_interval_;
 
       if (!record_pulse) {
         train_phase = 0.0f;
         reset_counter_ = ratio.q;
         f_ratio_ = ratio.ratio;
         max_train_phase = static_cast<float>(ratio.q);
-        reset_interval_ = 4.0f * p.total_duration;
+        reset_interval_ = 4.0f * cur_pulse.total_duration;
       } else {
-        float period = static_cast<float>(p.total_duration);
+        float period = static_cast<float>(cur_pulse.total_duration);
         if (period <= audio_rate_period_hysteresis_ * ar_scalar) {
           audio_rate_ = true;
           audio_rate_period_hysteresis_ = audio_rate_period_ * 1.1f;
@@ -169,10 +169,10 @@ void RampExtractor::Process(
 
           // Compute the pulse width of the previous pulse, and check if the
           // PW has been consistent over the past pulses.
-          p.pulse_width = static_cast<float>(p.on_duration) / \
-              static_cast<float>(p.total_duration);
+          cur_pulse.pulse_width = static_cast<float>(cur_pulse.on_duration) / \
+              static_cast<float>(cur_pulse.total_duration);
           average_pulse_width_ = ComputeAveragePulseWidth(kPulseWidthTolerance);
-          if (p.on_duration < 32) {
+          if (cur_pulse.on_duration < 32) {
             average_pulse_width_ = 0.0f;
           }
           frequency_ = target_frequency_ = 1.0f / PredictNextPeriod();
@@ -193,31 +193,34 @@ void RampExtractor::Process(
         }
 
         current_pulse_ = (current_pulse_ + 1) % kHistorySize;
+        cur_pulse = history_[current_pulse_];
       }
-      history_[current_pulse_].on_duration = 0;
-      history_[current_pulse_].total_duration = 0;
+      cur_pulse.on_duration = 0;
+      cur_pulse.total_duration = 0;
     }
-
     if (audio_rate_) {
       do {
-        ++history_[current_pulse_].total_duration;
+        ++cur_pulse.total_duration;
         if (flags & GATE_FLAG_FALLING) {
-          history_[current_pulse_].on_duration = history_[current_pulse_].total_duration - 1;
+          cur_pulse.on_duration = cur_pulse.total_duration - 1;
         }
         ONE_POLE(frequency_, target_frequency_, lp_coefficient_);
         train_phase += frequency_;
-        train_phase -= static_cast<float>(static_cast<int32_t>(train_phase));
+        if (train_phase >= 1.0f) {
+          train_phase -= 1.0f;
+        }
+        //train_phase -= static_cast<float>(static_cast<int32_t>(train_phase));
         *ramp++ = train_phase;
       } while (
           (--size)
           && !((flags = *gate_flags++) & GATE_FLAG_RISING));
     } else {
       do {
-        ++history_[current_pulse_].total_duration;
+        ++cur_pulse.total_duration;
         if (flags & GATE_FLAG_FALLING) {
-          history_[current_pulse_].on_duration = history_[current_pulse_].total_duration - 1;
+          cur_pulse.on_duration = cur_pulse.total_duration - 1;
           if (average_pulse_width_ > 0.0f) {
-            float t_on = static_cast<float>(history_[current_pulse_].on_duration);
+            float t_on = static_cast<float>(cur_pulse.on_duration);
             float next = max_train_phase - static_cast<float>(reset_counter_) + 1.0f;
             float pw = average_pulse_width_;
             frequency_ = max((next - train_phase), 0.0f) * pw / ((1.0f - pw) * t_on);
