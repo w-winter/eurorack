@@ -171,8 +171,10 @@ void RampExtractor::Process(
           // PW has been consistent over the past pulses.
           cur_pulse.pulse_width = static_cast<float>(cur_pulse.on_duration) / \
               static_cast<float>(cur_pulse.total_duration);
-          average_pulse_width_ = ComputeAveragePulseWidth(kPulseWidthTolerance);
-          if (cur_pulse.on_duration < 32) {
+          // We only need to do this when the cur pule pw would actually change something
+          if (!IsWithinTolerance(average_pulse_width_, cur_pulse.pulse_width, kPulseWidthTolerance)) {
+              average_pulse_width_ = ComputeAveragePulseWidth(kPulseWidthTolerance);
+          } else if (cur_pulse.on_duration < 32) {
             average_pulse_width_ = 0.0f;
           }
           frequency_ = target_frequency_ = 1.0f / PredictNextPeriod();
@@ -209,7 +211,6 @@ void RampExtractor::Process(
         if (train_phase >= 1.0f) {
           train_phase -= 1.0f;
         }
-        //train_phase -= static_cast<float>(static_cast<int32_t>(train_phase));
         *ramp++ = train_phase;
       } while (
           (--size)
