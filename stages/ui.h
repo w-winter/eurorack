@@ -82,7 +82,8 @@ class Ui {
   void MultiModeToggle(const uint8_t i);
 
   void UpdateLEDs();
-  uint8_t FadePattern(uint8_t shift, uint8_t phase, bool ramp) const;
+  uint8_t FadePattern(uint8_t shift, uint8_t phase) const;
+  uint8_t RampPattern(uint8_t shift, uint8_t phase) const;
 
   void show_mode() {
     for (size_t i = 0; i < kNumChannels; ++i) {
@@ -102,6 +103,7 @@ class Ui {
   int slider_led_counter_[kNumLEDs];
   int press_time_[kNumSwitches];
   int press_time_multimode_toggle_[kNumSwitches];
+  uint8_t tracking_multimode_;
 
   Settings* settings_;
   ChainState* chain_state_;

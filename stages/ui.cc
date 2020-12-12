@@ -110,39 +110,30 @@ void Ui::Poll() {
 
   // TODO: This is gross. Each mode should have its own UI handler, with a
   // generic system for changing segment properties that each can leverage.
-  uint8_t changing_prop = 0;
-  bool dirty = false;
-  uint16_t* seg_config = settings_->mutable_state()->segment_configuration;
-  for (uint8_t i = 0; i < kNumChannels; ++i) {
-    if (switches_.pressed(i)) {
-      cv_reader_->Lock(i);
-      float slider = cv_reader_->lp_slider(i);
-      CONSTRAIN(slider, 0.0f, 0.9999f);
-      float pot = cv_reader_->lp_pot(i);
-      CONSTRAIN(pot, 0.0f, 0.9999f);
+  bool changing_prop = false;
+  if (pressed || changing_pot_prop_ || changing_slider_prop_) {
+    bool dirty = false;
+    uint16_t* seg_config = settings_->mutable_state()->segment_configuration;
+    for (uint8_t i = 0; i < kNumChannels; ++i) {
+      if (switches_.pressed(i)) {
+        cv_reader_->Lock(i);
+        float slider = cv_reader_->lp_slider(i);
+        CONSTRAIN(slider, 0.0f, 0.9999f);
+        float pot = cv_reader_->lp_pot(i);
+        CONSTRAIN(pot, 0.0f, 0.9999f);
 
-      float locked_slider = cv_reader_->locked_slider(i);
-      float locked_pot = cv_reader_->locked_pot(i);
+        float locked_slider = cv_reader_->locked_slider(i);
+        float locked_pot = cv_reader_->locked_pot(i);
 
-      uint16_t old_flags = seg_config[i];
+        uint16_t old_flags = seg_config[i];
 
-      if (changing_slider_prop_ >> i & 1 // in the middle of change, so keep changing
-          || fabs(slider - locked_slider) > 0.05f) {
-        changing_slider_prop_ |= 1 << i;
+        if (changing_slider_prop_ >> i & 1 // in the middle of change, so keep changing
+            || fabs(slider - locked_slider) > 0.05f) {
+          changing_slider_prop_ |= 1 << i;
 
-        if (settings_->in_seg_gen_mode()) {
-          switch (seg_config[i] & 0x3) {
-            case 0: // ramp
-              seg_config[i] &= ~0x0300; // reset range bits
-              if (slider < 0.25) {
-                seg_config[i] |= 0x0100;
-              } else if (slider > 0.75) {
-                seg_config[i] |= 0x0200;
-              }
-              // default middle range is 0, so no else
-              break;
-            case 3: // random
-              if (chain_state_->loop_status(i) == ChainState::LOOP_STATUS_SELF) {
+          if (settings_->in_seg_gen_mode()) {
+            switch (seg_config[i] & 0x3) {
+              case 0: // ramp
                 seg_config[i] &= ~0x0300; // reset range bits
                 if (slider < 0.25) {
                   seg_config[i] |= 0x0100;
@@ -150,57 +141,70 @@ void Ui::Poll() {
                   seg_config[i] |= 0x0200;
                 }
                 // default middle range is 0, so no else
-              }
-              break;
-            case 1: // step
-            case 2: // hold
-              seg_config[i] &= ~0x3000; // reset quant scale bits
-              seg_config[i] |= static_cast<uint8_t>(4 *  slider) << 12;
-              break;
-            default: break;
-          }
-        } else if (settings_->in_ouroboros_mode()) {
-          seg_config[i] &= ~0x0c00; // reset range bits
-          if (slider < 0.25) {
-            seg_config[i] |= 0x0800;
-          } else if (slider < 0.75) { // high is default in ouroboros
-            seg_config[i] |= 0x0400;
-          }
-          break;
-        }
-      }
-
-      if(
-          !(changing_pot_prop_ >> i & 1) // This is a toggle, so don't change if we've changed.
-          && fabs(pot - locked_pot) > 0.05f) {
-
-        changing_pot_prop_ |= 1 << i;
-        switch (multimode) {
-          case MULTI_MODE_STAGES:
-          case MULTI_MODE_STAGES_ADVANCED:
-          case MULTI_MODE_STAGES_SLOW_LFO:
-            // toggle polarity
-            seg_config[i] ^= 0b00001000;
+                break;
+              case 3: // random
+                if (chain_state_->loop_status(i) == ChainState::LOOP_STATUS_SELF) {
+                  seg_config[i] &= ~0x0300; // reset range bits
+                  if (slider < 0.25) {
+                    seg_config[i] |= 0x0100;
+                  } else if (slider > 0.75) {
+                    seg_config[i] |= 0x0200;
+                  }
+                  // default middle range is 0, so no else
+                }
+                break;
+              case 1: // step
+              case 2: // hold
+                seg_config[i] &= ~0x3000; // reset quant scale bits
+                seg_config[i] |= static_cast<uint8_t>(4 *  slider) << 12;
+                break;
+              default: break;
+            }
+          } else if (settings_->in_ouroboros_mode()) {
+            seg_config[i] &= ~0x0c00; // reset range bits
+            if (slider < 0.25) {
+              seg_config[i] |= 0x0800;
+            } else if (slider < 0.75) { // high is default in ouroboros
+              seg_config[i] |= 0x0400;
+            }
             break;
-          default:
-            break;
+          }
         }
+
+        if( !(changing_pot_prop_ >> i & 1) && fabs(pot - locked_pot) > 0.05f) {
+          // This is a toggle, so don't change if we've changed.
+          changing_pot_prop_ |= 1 << i;
+          switch (multimode) {
+            case MULTI_MODE_STAGES:
+            case MULTI_MODE_STAGES_ADVANCED:
+            case MULTI_MODE_STAGES_SLOW_LFO:
+              // toggle polarity
+              seg_config[i] ^= 0b00001000;
+              break;
+            default:
+              break;
+          }
+        }
+        dirty = dirty || seg_config[i] != old_flags;
+      } else {
+        changing_pot_prop_ &= ~(1 << i);
+        changing_slider_prop_ &= ~(1 << i);
+        cv_reader_->Unlock(i);
       }
-      dirty = dirty || seg_config[i] != old_flags;
-    } else {
-      changing_pot_prop_ &= ~(1 << i);
-      changing_slider_prop_ &= ~(1 << i);
-      cv_reader_->Unlock(i);
     }
+    if (dirty) {
+      settings_->SaveState();
+    }
+
+    changing_prop = changing_pot_prop_ || changing_slider_prop_;
+    // We're changing prop parameters
+    if (changing_prop) {
+      chain_state_->SuspendSwitches();
+    }
+  } else {
+    cv_reader_->unlock_all();
   }
-  if (dirty) {
-    settings_->SaveState();
-  }
-  changing_prop = changing_pot_prop_ | changing_slider_prop_;
-  // We're changing prop parameters
-  if (changing_prop) {
-    chain_state_->SuspendSwitches();
-  }
+
 
   if (settings_->in_ouroboros_mode()) {
 
@@ -231,17 +235,21 @@ void Ui::Poll() {
 
 
   // Detect very long presses for multi-mode toggle (using a negative counter)
-  for (uint8_t i = 0; i < kNumSwitches; ++i) {
-    if (switches_.pressed(i) & !changing_prop) {
-      if (press_time_multimode_toggle_[i] != -1) {
-        ++press_time_multimode_toggle_[i];
+  if (tracking_multimode_ || pressed) {
+    tracking_multimode_ = 0;
+    for (uint8_t i = 0; i < kNumSwitches; ++i) {
+      if (switches_.pressed(i) & !changing_prop) {
+        if (press_time_multimode_toggle_[i] != -1) {
+          ++press_time_multimode_toggle_[i];
+          ++tracking_multimode_;
+        }
+        if (press_time_multimode_toggle_[i] > kLongPressDurationForMultiModeToggle) {
+          MultiModeToggle(i);
+          press_time_multimode_toggle_[i] = -1;
+        }
+      } else {
+        press_time_multimode_toggle_[i] = 0;
       }
-      if (press_time_multimode_toggle_[i] > kLongPressDurationForMultiModeToggle) {
-        MultiModeToggle(i);
-        press_time_multimode_toggle_[i] = -1;
-      }
-    } else {
-      press_time_multimode_toggle_[i] = 0;
     }
   }
 }
@@ -261,17 +269,20 @@ void Ui::MultiModeToggle(const uint8_t i) {
   }
 }
 
-inline uint8_t Ui::FadePattern(uint8_t shift, uint8_t phase, bool ramp) const {
+inline uint8_t Ui::FadePattern(uint8_t shift, uint8_t phase) const {
   uint8_t x = system_clock.milliseconds() >> shift;
   x += phase;
-  if (ramp) { // produce a downward ramp pattern with a delay
-    x &= 0x1f;
-    return x > 0x0f ? 0x0f : 0x0f - x;
-  } else { // produce a triangular pattern
-    x &= 0x1f;
-    return x <= 0x10 ? x : 0x1f - x;
-  }
+  x &= 0x1f;
+  return x <= 0x10 ? x : 0x1f - x;
 }
+
+inline uint8_t Ui::RampPattern(uint8_t shift, uint8_t phase) const {
+  uint8_t x = system_clock.milliseconds() >> shift;
+  x += phase;
+  x &= 0x1f;
+  return x > 0x0f ? 0x0f : 0x0f - x;
+}
+
 
 void Ui::UpdateLEDs() {
   leds_.Clear();
@@ -319,21 +330,15 @@ void Ui::UpdateLEDs() {
       uint8_t pwm = system_clock.milliseconds() & 0xf;
       uint8_t fade_patterns[4] = {
         0xf,  // NONE
-        FadePattern(4, 0, false),  // START
-        FadePattern(4, 0x0f, false),  // END
-        FadePattern(4, 0x08, false),  // SELF
+        FadePattern(4, 0),  // START
+        FadePattern(4, 0x0f),  // END
+        FadePattern(4, 0x08),  // SELF
       };
 
       uint8_t lfo_patterns[3] = {
-        FadePattern(4, 0x08, false), // Default, middle
-        FadePattern(6, 0x08, false), // slow
-        FadePattern(2, 0x08, false), // fast
-      };
-
-      uint8_t ramp_patterns[3] = {
-        0xf,  // none
-        FadePattern(5, 0x08, true), // fast ramp
-        FadePattern(7, 0x08, true), // slow ramp
+        FadePattern(4, 0x08), // Default, middle
+        FadePattern(6, 0x08), // slow
+        FadePattern(2, 0x08), // fast
       };
 
       for (size_t i = 0; i < kNumChannels; ++i) {
@@ -346,12 +351,17 @@ void Ui::UpdateLEDs() {
         uint8_t type = configuration & 0x3;
         LedColor color = palette_[type];
         if (settings_->in_seg_gen_mode()) {
+          uint8_t speed = configuration >> 8 & 0x3;
           if (chain_state_->loop_status(i) == ChainState::LOOP_STATUS_SELF) {
-            brightness = lfo_patterns[configuration >> 8 & 0x3];
+            brightness = lfo_patterns[speed];
           } else {
             brightness = fade_patterns[chain_state_->loop_status(i)];
             if (type == 0) {
-              brightness = brightness * (ramp_patterns[configuration >> 8 & 0x3] + 1) >> 5;
+              if (speed == 1) {
+                brightness = brightness * (RampPattern(5, 0x08) + 1) >> 5;
+              } else if (speed == 2) {
+                brightness = brightness * (RampPattern(7, 0x08) + 1) >> 5;
+              }
             }
           }
           if ((changing_slider_prop_ & (1 << i)) && (type == 1 || type == 2)) {
@@ -370,7 +380,7 @@ void Ui::UpdateLEDs() {
         }
         if (settings_->state().color_blind == 1) {
           if (type == 0) {
-            uint8_t modulation = FadePattern(6, 13 - (2 * i), false) >> 1;
+            uint8_t modulation = FadePattern(6, 13 - (2 * i)) >> 1;
             brightness = brightness * (7 + modulation) >> 4;
           } else if (type == 1) {
             brightness = brightness >= 0x8 ? 0xf : 0;
@@ -418,14 +428,21 @@ void Ui::UpdateLEDs() {
       if (slider_led_counter_[i]) {
         --slider_led_counter_[i];
       }
+    }
 
-      // Turn off LEDs if in limbo
-      if (cv_reader_->slider_in_limbo(i)) {
-        uint8_t dimness = static_cast<uint8_t>(
-            8 * fabs(cv_reader_->locked_slider(i) - cv_reader_->lp_slider(i)));
-        leds_.set(LED_GROUP_SLIDER + i,
-            (ms & 0x07) < dimness ? LED_COLOR_OFF : LED_COLOR_GREEN );
+    if (cv_reader_->any_slider_in_limbo()) {
+      for (size_t i = 0; i < kNumChannels; ++i) {
+        // Turn off LEDs if in limbo
+        if (cv_reader_->slider_in_limbo(i)) {
+          uint8_t dimness = static_cast<uint8_t>(
+              8 * fabs(cv_reader_->locked_slider(i) - cv_reader_->lp_slider(i)));
+          leds_.set(LED_GROUP_SLIDER + i,
+              (ms & 0x07) < dimness ? LED_COLOR_OFF : LED_COLOR_GREEN );
+        }
       }
+    }
+    if (cv_reader_->any_pot_in_limbo()) {
+      for (size_t i = 0; i < kNumChannels; ++i) {
       if (cv_reader_->pot_in_limbo(i)) {
         uint8_t dimness = static_cast<uint8_t>(
             8 * fabs(cv_reader_->locked_pot(i) - cv_reader_->lp_pot(i)));
@@ -433,6 +450,7 @@ void Ui::UpdateLEDs() {
         if ((ms & 0x07) < dimness) {
           leds_.set(LED_GROUP_UI + i, LED_COLOR_OFF);
         }
+      }
       }
     }
   }

@@ -53,6 +53,10 @@ class CvReader {
   void Lock(int i);
   void Unlock(int i);
 
+  void unlock_all() {
+    locked_ = 0;
+  }
+
   inline uint8_t raw_cv(int i) const {
     return (int32_t(cv_adc_.value(i)) + 32768) >> 8;
   }
@@ -89,8 +93,16 @@ class CvReader {
     return locked_ >> i & 1;
   }
 
+  inline bool any_pot_in_limbo() const {
+    return pot_limbo_;
+  }
+
   inline bool pot_in_limbo(int i) const {
     return (pot_limbo_ >> i & 1);
+  }
+
+  inline bool any_slider_in_limbo() const {
+    return slider_limbo_;
   }
 
   inline bool slider_in_limbo(int i) const {
