@@ -304,7 +304,7 @@ void SegmentGenerator::ProcessRiseAndFall(
       ONE_POLE(lp_, value_, fall);
       phase_ = 1;
     }
-    out->value = lp_;
+    out->value = segments_[0].bipolar ? lp_ : fabsf(lp_);
     out->phase = phase_;
     out->segment = active_segment_ = fabsf(lp_) > 0.1 ? 0 : 1;
     out++;
