@@ -430,7 +430,8 @@ inline void ChainState::BindLocalParameters(
         m.destination,
         cv_slider(block, m.source, configs[i]),
         block.pot[m.source],
-        block.cv[m.source]);
+        block.cv[m.source],
+        block.slider[m.source]);
   }
 }
 

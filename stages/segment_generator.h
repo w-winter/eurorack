@@ -48,6 +48,7 @@ const float kSampleRate = 31250.0f;
 // with 36 segments each. But it was a bit too much to have a shared pool of
 // pre-allocated Segments shared by all SegmentGenerators!
 const int kMaxNumSegments = 36;
+const int kMaxNumLocalSegments = 6;
 
 const size_t kMaxDelay = 768;
 
@@ -86,7 +87,11 @@ struct Parameters {
   // TURING        | Prob  | Sequence length
   float primary;
   float secondary;
-  float value; // only present for local segments
+};
+
+struct LocalParameters {
+  float cv;
+  float slider;
 };
 
 }  // namespace segment
@@ -178,12 +183,15 @@ class SegmentGenerator {
     parameters_[index].secondary = secondary;
   }
 
-  void set_segment_parameters(int index, float primary, float secondary, float value) {
+  void set_segment_parameters(int index,
+          float primary, float secondary,
+          float cv, float slider) {
     // assert (primary >= -1.0f && primary <= 2.0f)
     // assert (secondary >= 0.0f && secondary <= 1.0f)
     parameters_[index].primary = primary;
     parameters_[index].secondary = secondary;
-    parameters_[index].value = value;
+    local_parameters_[index].slider = slider;
+    local_parameters_[index].cv = cv;
   }
 
   inline int num_segments() {
@@ -255,6 +263,7 @@ class SegmentGenerator {
 
   Segment segments_[kMaxNumSegments + 1];  // There's a sentinel!
   segment::Parameters parameters_[kMaxNumSegments];
+  segment::LocalParameters local_parameters_[kMaxNumLocalSegments];
 
   DelayLine16Bits<kMaxDelay> delay_line_;
   stmlib::DelayLine<stmlib::GateFlags, 128> gate_delay_;
