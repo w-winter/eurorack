@@ -288,10 +288,9 @@ void SegmentGenerator::ProcessDecayEnvelope(
 
 void SegmentGenerator::ProcessRiseAndFall(
     const GateFlags* gate_flags, SegmentGenerator::Output* out, size_t size) {
-  float fallParam = parameters_[0].primary - value_;
-  float fall = PortamentoRateToLPCoefficient(fallParam);
+  float fall = PortamentoRateToLPCoefficient(local_parameters_[0].slider);
   float rise = PortamentoRateToLPCoefficient(parameters_[0].secondary);
-  ParameterInterpolator primary(&primary_, parameters_[0].value, size);
+  ParameterInterpolator primary(&primary_, local_parameters_[0].cv, size);
 
   while (size--) {
     value_ = primary.Next();
